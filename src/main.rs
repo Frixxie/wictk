@@ -1,17 +1,29 @@
-use axum::{extract::State, routing::get, Router, Server};
+use axum::{extract::State, routing::get, Json, Router, Server};
 use hyper::StatusCode;
 use reqwest::Client;
+use serde_json::Value;
+use weather_alert::Alert;
 
-async fn alerts(State(client): State<Client>) -> Result<String, StatusCode> {
+mod weather_alert;
+
+async fn alerts(State(client): State<Client>) -> Result<Json<Vec<Alert>>, StatusCode> {
     let res = client
         .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
         .send()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
-    match res?.text().await {
-        Ok(text) => Ok(text),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-    }
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let json = res
+        .json::<Value>()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let alerts: Vec<Alert> = json["features"]
+        .as_array()
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
+        .iter()
+        .filter_map(|alert| weather_alert::Met::try_from(alert.clone()).ok())
+        .map(|alert| alert.into())
+        .collect();
+    Ok(Json(alerts))
 }
 
 #[tokio::main]
