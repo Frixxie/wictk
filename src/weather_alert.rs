@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Alert {
     /// The alert was issued by the National Weather Service.
-    MET(Met),
+    Met(Met),
     /// The alert was issued by a local authority, typically a county.
-    NVE,
+    Nve,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub enum Severity {
 
 impl From<Met> for Alert {
     fn from(met: Met) -> Self {
-        Alert::MET(met)
+        Alert::Met(met)
     }
 }
 
