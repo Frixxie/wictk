@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Alert {
     /// The alert was issued by the National Weather Service.
-    Met(Met),
+    Met(MetAlert),
     /// The alert was issued by a local authority, typically a county.
     Nve,
 }
@@ -18,14 +18,14 @@ pub enum Severity {
     Red,
 }
 
-impl From<Met> for Alert {
-    fn from(met: Met) -> Self {
+impl From<MetAlert> for Alert {
+    fn from(met: MetAlert) -> Self {
         Alert::Met(met)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Met {
+pub struct MetAlert {
     pub title: String,
     pub severity: Severity,
     pub description: String,
@@ -54,7 +54,7 @@ impl AlertError {
     }
 }
 
-impl TryFrom<serde_json::Value> for Met {
+impl TryFrom<serde_json::Value> for MetAlert {
     type Error = AlertError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
@@ -82,7 +82,7 @@ impl TryFrom<serde_json::Value> for Met {
             .as_str()
             .ok_or_else(|| AlertError::new("Failed to parse event"))?
             .to_owned();
-        Ok(Met {
+        Ok(MetAlert {
             severity,
             title,
             description,
@@ -105,7 +105,7 @@ mod tests {
 
         let json_value: Value = serde_json::from_str(json).unwrap();
 
-        let alert = Met::try_from(json_value).unwrap();
+        let alert = MetAlert::try_from(json_value).unwrap();
 
         assert_eq!(alert.severity, Severity::Yellow);
         assert_eq!(
