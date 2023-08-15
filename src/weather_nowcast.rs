@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +50,7 @@ impl Location {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetNowcast {
     pub location: Location,
-    pub time: DateTime<chrono::Utc>,
+    pub time: String,
     pub description: String,
     pub air_temperature: f32,
     pub relative_humidity: f32,
@@ -74,9 +73,9 @@ impl TryFrom<serde_json::Value> for MetNowcast {
             location[1].as_f64().unwrap() as f32,
         );
 
-        let time = value["properties"]["meta"]["updated_at"].as_str().unwrap();
-        let time = DateTime::parse_from_rfc3339(time)
-            .map_err(|_| NowcastError::new("Could not parse time"))?;
+        let time = value["properties"]["meta"]["updated_at"]
+            .as_str()
+            .ok_or_else(|| NowcastError::new("Could not find time"))?;
 
         let description = value["properties"]["timeseries"][0]["data"]["next_1_hours"]["summary"]
             ["symbol_code"]
@@ -115,7 +114,7 @@ impl TryFrom<serde_json::Value> for MetNowcast {
 
         Ok(Self {
             location,
-            time: time.with_timezone(&chrono::Utc),
+            time: time.to_string(),
             description: description.to_string(),
             air_temperature: air_temperature as f32,
             relative_humidity: relative_humidity as f32,
@@ -143,12 +142,7 @@ mod tests {
 
         assert_eq!(met.location.lat, 10.4034);
         assert_eq!(met.location.lon, 63.4308);
-        assert_eq!(
-            met.time,
-            DateTime::parse_from_rfc3339("2023-08-14T18:16:07Z")
-                .unwrap()
-                .with_timezone(&chrono::Utc)
-        );
+        assert_eq!(met.time, "2023-08-14T18:15:00Z");
         assert_eq!(met.description, "cloudy");
         assert_eq!(met.air_temperature, 17.7);
         assert_eq!(met.relative_humidity, 80.5);

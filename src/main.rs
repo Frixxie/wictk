@@ -3,12 +3,11 @@ use axum::{
     routing::get,
     Json, Router, Server,
 };
-use geocoding::{Forward, Openstreetmap};
 use hyper::StatusCode;
 use reqwest::Client;
 use serde_json::Value;
 use weather_alert::{Alert, MetAlert};
-use weather_nowcast::{MetNowcast, Nowcast};
+use weather_nowcast::{Location, MetNowcast, Nowcast};
 
 mod weather_alert;
 mod weather_nowcast;
@@ -35,22 +34,15 @@ async fn alerts(State(client): State<Client>) -> Result<Json<Vec<Alert>>, Status
 
 async fn nowcasts(
     State(client): State<Client>,
-    Query(location): Query<String>,
+    Query(location): Query<Location>,
 ) -> Result<Json<Nowcast>, StatusCode> {
-    let osm = Openstreetmap::new();
-    let lonlat: Vec<geo::Point<f32>> = osm
-        .forward(&location)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let res = client
         .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
-        .query(&[
-            ("lat", lonlat[0].x().to_string()),
-            ("lon", lonlat[0].y().to_string()),
-        ])
+        .query(&[("lat", location.lat), ("lon", location.lon)])
         .send()
-        .await;
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let nowcast: MetNowcast = res
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .json::<Value>()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -61,7 +53,16 @@ async fn nowcasts(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::new();
+    let client_builder = reqwest::Client::builder();
+    static APP_USER_AGENT: &str = concat!(
+        env!("CARGO_PKG_NAME"),
+        "/",
+        env!("CARGO_PKG_VERSION"),
+        " ",
+        env!("CARGO_PKG_HOMEPAGE"),
+    );
+    let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+
     let app = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
