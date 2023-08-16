@@ -25,12 +25,19 @@ impl From<MetAlert> for Alert {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TimeDuration {
+    from: String,
+    until: String
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MetAlert {
     pub title: String,
     pub severity: Severity,
     pub description: String,
     pub certainty: String,
     pub event: String,
+    pub duration: TimeDuration
 }
 
 #[derive(Debug)]
@@ -82,12 +89,23 @@ impl TryFrom<serde_json::Value> for MetAlert {
             .as_str()
             .ok_or_else(|| AlertError::new("Failed to parse event"))?
             .to_owned();
+        let duration = TimeDuration {
+            from: value["when"]["interval"][0]
+                .as_str()
+                .ok_or_else(|| AlertError::new("Failed to parse from"))?
+                .to_owned(),
+            until: value["when"]["interval"][1]
+                .as_str()
+                .ok_or_else(|| AlertError::new("Failed to parse until"))?
+                .to_owned()
+        };
         Ok(MetAlert {
             severity,
             title,
             description,
             certainty,
             event,
+            duration
         })
     }
 }
@@ -118,5 +136,7 @@ mod tests {
         );
         assert_eq!(alert.certainty, "Likely");
         assert_eq!(alert.event, "forestFire");
+        assert_eq!(alert.duration.from, "2023-08-10T22:00:00+00:00");
+        assert_eq!(alert.duration.until, "2023-08-14T22:00:00+00:00");
     }
 }
