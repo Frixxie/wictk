@@ -36,19 +36,18 @@ async fn nowcasts(
     State(client): State<Client>,
     Query(location): Query<Location>,
 ) -> Result<Json<Nowcast>, StatusCode> {
-    let res = client
+    let res: MetNowcast = client
         .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
         .query(&[("lat", location.lat), ("lon", location.lon)])
         .send()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let nowcast: MetNowcast = res
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .json::<Value>()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .try_into()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Json(nowcast.into()))
+    Ok(Json(res.into()))
 }
 
 #[tokio::main]

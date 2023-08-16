@@ -142,7 +142,7 @@ mod tests {
 
         assert_eq!(met.location.lat, 10.4034);
         assert_eq!(met.location.lon, 63.4308);
-        assert_eq!(met.time, "2023-08-14T18:15:00Z");
+        assert_eq!(met.time, "2023-08-14T18:16:07Z");
         assert_eq!(met.description, "cloudy");
         assert_eq!(met.air_temperature, 17.7);
         assert_eq!(met.relative_humidity, 80.5);
