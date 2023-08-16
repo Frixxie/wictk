@@ -1,3 +1,5 @@
+mod weather;
+
 use axum::{
     extract::{Query, State},
     routing::get,
@@ -6,11 +8,7 @@ use axum::{
 use hyper::StatusCode;
 use reqwest::Client;
 use serde_json::Value;
-use weather_alert::{Alert, MetAlert};
-use weather_nowcast::{Location, MetNowcast, Nowcast};
-
-mod weather_alert;
-mod weather_nowcast;
+use weather::{Alert, Location, MetAlert, MetNowcast, Nowcast};
 
 async fn alerts(State(client): State<Client>) -> Result<Json<Vec<Alert>>, StatusCode> {
     let res = client
