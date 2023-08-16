@@ -8,7 +8,7 @@ use axum::{
 use hyper::StatusCode;
 use reqwest::Client;
 use serde_json::Value;
-use weather::{Alert, Location, MetAlert, MetNowcast, Nowcast};
+use weather::{Alert, Location, MetAlert, MetNowcast, Nowcast, OpenWeatherNowcast};
 
 async fn alerts(State(client): State<Client>) -> Result<Json<Vec<Alert>>, StatusCode> {
     let res = client
@@ -33,8 +33,8 @@ async fn alerts(State(client): State<Client>) -> Result<Json<Vec<Alert>>, Status
 async fn nowcasts(
     State(client): State<Client>,
     Query(location): Query<Location>,
-) -> Result<Json<Nowcast>, StatusCode> {
-    let res: MetNowcast = client
+) -> Result<Json<Vec<Nowcast>>, StatusCode> {
+    let met_cast: MetNowcast = client
         .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
         .query(&[("lat", location.lat), ("lon", location.lon)])
         .send()
@@ -45,7 +45,20 @@ async fn nowcasts(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .try_into()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Json(res.into()))
+    let openweathermap: OpenWeatherNowcast = client
+        .get("https://api.openweathermap.org/data/2.5/weather")
+        .query(&[("lat", location.lat), ("lon", location.lon)])
+        .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+        .send()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .json::<Value>()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .try_into()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let nowcasts: Vec<Nowcast> = vec![met_cast.into(), openweathermap.into()];
+    Ok(Json(nowcasts))
 }
 
 #[tokio::main]

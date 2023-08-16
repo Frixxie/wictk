@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Nowcast {
     Met(MetNowcast),
-    OpenWeather,
+    OpenWeather(OpenWeatherNowcast),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +32,12 @@ impl Error for NowcastError {}
 impl From<MetNowcast> for Nowcast {
     fn from(met: MetNowcast) -> Self {
         Self::Met(met)
+    }
+}
+
+impl From<OpenWeatherNowcast> for Nowcast {
+    fn from(open_weather: OpenWeatherNowcast) -> Self {
+        Self::OpenWeather(open_weather)
     }
 }
 
@@ -127,8 +133,100 @@ impl TryFrom<serde_json::Value> for MetNowcast {
     }
 }
 
-#[cfg(test)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OpenWeatherNowcast {
+    dt: u32,
+    name: String,
+    country: String,
+    lon: f32,
+    lat: f32,
+    main: String,
+    desc: String,
+    clouds: u32,
+    wind_speed: f32,
+    wind_deg: i32,
+    visibility: i32,
+    temp: f32,
+    feels_like: f32,
+    humidity: u32,
+    pressure: u32,
+}
 
+impl TryFrom<serde_json::Value> for OpenWeatherNowcast {
+    type Error = NowcastError;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        let dt = value["dt"]
+            .as_u64()
+            .ok_or(NowcastError::new("Could not find dt"))? as u32;
+        let name = value["name"]
+            .as_str()
+            .ok_or(NowcastError::new("Could not find name"))?
+            .to_string();
+        let country = value["sys"]["country"]
+            .as_str()
+            .ok_or(NowcastError::new("Could not find country"))?
+            .to_string();
+        let lon = value["coord"]["lon"]
+            .as_f64()
+            .ok_or(NowcastError::new("Could not find lon"))? as f32;
+        let lat = value["coord"]["lat"]
+            .as_f64()
+            .ok_or(NowcastError::new("Could not find lat"))? as f32;
+        let main = value["weather"][0]["main"]
+            .as_str()
+            .ok_or(NowcastError::new("Could not find main"))?
+            .to_string();
+        let desc = value["weather"][0]["description"]
+            .as_str()
+            .ok_or(NowcastError::new("Could not find desc"))?
+            .to_string();
+        let clouds = value["clouds"]["all"]
+            .as_u64()
+            .ok_or(NowcastError::new("Could not find clouds"))? as u32;
+        let wind_speed = value["wind"]["speed"]
+            .as_f64()
+            .ok_or(NowcastError::new("Could not find wind_speed"))? as f32;
+        let wind_deg = value["wind"]["deg"]
+            .as_i64()
+            .ok_or(NowcastError::new("Could not find wind_deg"))? as i32;
+        let visibility = value["visibility"]
+            .as_i64()
+            .ok_or(NowcastError::new("Could not find visibility"))? as i32;
+        let temp = value["main"]["temp"]
+            .as_f64()
+            .ok_or(NowcastError::new("Could not find temp"))? as f32;
+        let feels_like = value["main"]["feels_like"]
+            .as_f64()
+            .ok_or(NowcastError::new("Could not find feels_like"))? as f32;
+        let humidity = value["main"]["humidity"]
+            .as_u64()
+            .ok_or(NowcastError::new("Could not find humidity"))? as u32;
+        let pressure = value["main"]["pressure"]
+            .as_u64()
+            .ok_or(NowcastError::new("Could not find pressure"))? as u32;
+
+        Ok(Self {
+            dt,
+            name,
+            country,
+            lon,
+            lat,
+            main,
+            desc,
+            clouds,
+            wind_speed,
+            wind_deg,
+            visibility,
+            temp,
+            feels_like,
+            humidity,
+            pressure,
+        })
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -150,5 +248,30 @@ mod tests {
         assert_eq!(met.wind_speed, 2.7);
         assert_eq!(met.wind_speed_gust, 6.1);
         assert_eq!(met.wind_from_direction, 294.4);
+    }
+
+    #[test]
+    fn open_weathermap_from_value() {
+        let json = r#"{"coord":{"lon":10.3951,"lat":63.4305},"weather":[{"id":804,"main":"Clouds","description":"overcast clouds","icon":"04d"}],"base":"stations","main":{"temp":15.21,"feels_like":15.19,"temp_min":14.99,"temp_max":16.05,"pressure":1014,"humidity":92},"visibility":10000,"wind":{"speed":0.89,"deg":270,"gust":2.68},"clouds":{"all":99},"dt":1692185222,"sys":{"type":2,"id":2046252,"country":"NO","sunrise":1692155757,"sunset":1692214194},"timezone":7200,"id":3133880,"name":"Trondheim","cod":200}"#;
+
+        let json_value: serde_json::Value = serde_json::from_str(json).unwrap();
+
+        let open_weather = OpenWeatherNowcast::try_from(json_value).unwrap();
+
+        assert_eq!(open_weather.dt, 1692185222);
+        assert_eq!(open_weather.name, "Trondheim");
+        assert_eq!(open_weather.country, "NO");
+        assert_eq!(open_weather.lon, 10.3951);
+        assert_eq!(open_weather.lat, 63.4305);
+        assert_eq!(open_weather.main, "Clouds");
+        assert_eq!(open_weather.desc, "overcast clouds");
+        assert_eq!(open_weather.clouds, 99);
+        assert_eq!(open_weather.wind_speed, 0.89);
+        assert_eq!(open_weather.wind_deg, 270);
+        assert_eq!(open_weather.visibility, 10000);
+        assert_eq!(open_weather.temp, 15.21);
+        assert_eq!(open_weather.feels_like, 15.19);
+        assert_eq!(open_weather.humidity, 92);
+        assert_eq!(open_weather.pressure, 1014);
     }
 }
