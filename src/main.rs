@@ -56,16 +56,18 @@ impl IntoResponse for InternalApplicationError {
 async fn alerts(
     State(client): State<Client>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
-    let res = client
+    let res: Vec<Alert> = client
         .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
         .send()
         .await
-        .map_err(|_| InternalApplicationError::new("request failed"))?;
-    let json = res
+        .map_err(|_| InternalApplicationError::new("request failed"))?
         .json::<Value>()
         .await
-        .map_err(|_| InternalApplicationError::new("Deserialization failed"))?;
-    let alerts: Vec<Alert> = json["features"]
+        .map_err(|_| InternalApplicationError::new("Deserialization failed"))?
+        .get("features")
+        .ok_or(InternalApplicationError::new(
+            "Failed to convert value to alert type",
+        ))?
         .as_array()
         .ok_or(InternalApplicationError::new(
             "Failed to convert value to alert type",
@@ -74,7 +76,7 @@ async fn alerts(
         .filter_map(|alert| MetAlert::try_from(alert.clone()).ok())
         .map(|alert| alert.into())
         .collect();
-    Ok(Json(alerts))
+    Ok(Json(res))
 }
 
 async fn nowcasts(
