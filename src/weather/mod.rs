@@ -1,5 +1,7 @@
 mod alerts;
 mod nowcasts;
+mod location;
 
 pub use alerts::{Alert, MetAlert};
-pub use nowcasts::{Location, MetNowcast, Nowcast, OpenWeatherNowcast};
+pub use nowcasts::{MetNowcast, Nowcast, OpenWeatherNowcast};
+pub use location::{Location, OpenWeatherLocationEntry};

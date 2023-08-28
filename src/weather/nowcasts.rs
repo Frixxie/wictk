@@ -2,6 +2,8 @@ use std::error::Error;
 
 use serde::{Deserialize, Serialize};
 
+use super::Location;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Nowcast {
     Met(MetNowcast),
@@ -41,17 +43,6 @@ impl From<OpenWeatherNowcast> for Nowcast {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Location {
-    pub lat: f32,
-    pub lon: f32,
-}
-
-impl Location {
-    pub fn new(lat: f32, lon: f32) -> Self {
-        Self { lat, lon }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetNowcast {

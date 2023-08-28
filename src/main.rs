@@ -1,13 +1,10 @@
-mod weather;
 mod handlers;
 mod utils;
+mod weather;
 
-use axum::{
-    routing::get,
-    Router, Server,
-};
+use axum::{routing::get, Router, Server};
 
-use crate::handlers::{alerts, nowcasts};
+use crate::handlers::{alerts, get_geocoding, nowcasts};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,6 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
+        .route("/geocoding", get(get_geocoding))
         .with_state(client);
 
     let app = Router::new().nest("/api", api);
