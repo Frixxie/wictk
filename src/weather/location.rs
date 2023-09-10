@@ -9,7 +9,7 @@ pub struct OpenWeatherLocationEntry {
     #[serde(flatten)]
     pub location: Location,
     pub country: String,
-    pub state: String,
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
