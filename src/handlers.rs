@@ -2,7 +2,7 @@ use crate::{
     utils::InternalApplicationError,
     weather::{
         Alert, Location, MetAlert, MetNowcast, Nowcast, OpenWeatherLocationEntry,
-        OpenWeatherNowcast,
+        OpenWeatherNowcast, LocationQuery,
     },
 };
 use axum::{
@@ -10,7 +10,6 @@ use axum::{
     Json,
 };
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherLocationEntry>> {
@@ -24,11 +23,6 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
         .json::<Vec<OpenWeatherLocationEntry>>()
         .await
         .ok()
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct LocationQuery {
-    location: String,
 }
 
 pub async fn get_geocoding(
