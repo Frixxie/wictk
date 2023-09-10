@@ -28,14 +28,20 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
 
 #[derive(Serialize, Deserialize)]
 pub struct LocationQuery {
-    pub loc: String,
+    pub location: Option<String>,
+    #[serde(flatten)]
+    pub lon_lat: Option<Location>,
 }
 
 pub async fn get_geocoding(
     State(client): State<Client>,
     Query(query): Query<LocationQuery>,
 ) -> Result<Json<Vec<OpenWeatherLocationEntry>>, InternalApplicationError> {
-    let res = geocoding(client, query.loc).await.ok_or_else(|| {
+    let location = query
+        .location
+        .ok_or_else(|| InternalApplicationError::new("No location provided in query string"))?;
+
+    let res = geocoding(client, location).await.ok_or_else(|| {
         InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
     })?;
     Ok(Json(res))
@@ -69,11 +75,25 @@ pub async fn alerts(
 
 pub async fn nowcasts(
     State(client): State<Client>,
-    Query(query): Query<Location>,
+    Query(query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
+    let location = if let Some(location) = query.lon_lat {
+        location
+    } else {
+        let location = query
+            .location
+            .ok_or_else(|| InternalApplicationError::new("No location provided in query string"))?;
+        let res = geocoding(client.clone(), location).await.ok_or_else(|| {
+            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+        })?;
+        res.first()
+            .ok_or_else(|| InternalApplicationError::new("No location found"))?
+            .location
+            .clone()
+    };
     let met_cast: MetNowcast = client
         .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
-        .query(&[("lat", query.lat), ("lon", query.lon)])
+        .query(&[("lat", location.lat), ("lon", location.lon)])
         .send()
         .await
         .map_err(|_| InternalApplicationError::new("request failed"))?
@@ -84,7 +104,7 @@ pub async fn nowcasts(
         .map_err(|_| InternalApplicationError::new("Failed to convert value to nowcast type"))?;
     let openweathermap: OpenWeatherNowcast = client
         .get("https://api.openweathermap.org/data/2.5/weather")
-        .query(&[("lat", query.lat), ("lon", query.lon)])
+        .query(&[("lat", location.lat), ("lon", location.lon)])
         .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
         .send()
         .await
