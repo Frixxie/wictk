@@ -3,21 +3,15 @@
   "packageRules": [
     {
       "groupName": "Cargo",
-      "matchDatasources": ["cargo"],
-      "matchManagers": ["cargo"],
-      "labels": ["cargo"]
+      "matchManagers": ["cargo"]
     },
     {
       "groupName": "Docker",
-      "matchDatasources": ["dockerfile"],
-      "matchManagers": ["dockerfile"],
-      "labels": ["docker"]
+      "matchManagers": ["dockerfile"]
     },
     {
       "groupName": "github",
-      "matchDatasources": ["github-actions"],
-      "matchManagers": ["github-actions"],
-      "labels": ["github"]
+      "matchManagers": ["github-actions"]
     }
   ]
 }
