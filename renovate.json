@@ -13,5 +13,6 @@
       "groupName": "github",
       "matchManagers": ["github-actions"]
     }
-  ]
+  ],
+  "osvVulnerabilityAlerts": true
 }
