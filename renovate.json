@@ -4,6 +4,14 @@
     {
       "matchDatasources": ["cargo"],
       "labels": ["cargo"]
+    },
+    {
+      "matchDatasources": ["Dockerfile"],
+      "labels": ["docker"]
+    },
+    {
+      "matchDatasources": ["github-actions"],
+      "labels": ["github"]
     }
   ]
 }
