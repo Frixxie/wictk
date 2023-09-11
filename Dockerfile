@@ -1,4 +1,4 @@
-FROM rust:1.67 as builder
+FROM rust:1.72 as builder
 WORKDIR /usr/src/wictk
 COPY . .
 RUN cargo install --path .
