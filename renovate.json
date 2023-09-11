@@ -4,16 +4,19 @@
     {
       "groupName": "Cargo",
       "matchDatasources": ["cargo"],
+      "matchManagers": ["cargo"],
       "labels": ["cargo"]
     },
     {
       "groupName": "Docker",
-      "matchDatasources": ["Dockerfile"],
+      "matchDatasources": ["dockerfile"],
+      "matchManagers": ["dockerfile"],
       "labels": ["docker"]
     },
     {
-      "groupName": "Cargo",
+      "groupName": "github",
       "matchDatasources": ["github-actions"],
+      "matchManagers": ["github-actions"],
       "labels": ["github"]
     }
   ]
