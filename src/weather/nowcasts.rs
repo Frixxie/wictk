@@ -2,7 +2,7 @@ use std::error::Error;
 
 use serde::{Deserialize, Serialize};
 
-use super::Location;
+use super::Coordinates;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Nowcast {
@@ -46,7 +46,7 @@ impl From<OpenWeatherNowcast> for Nowcast {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetNowcast {
-    pub location: Location,
+    pub location: Coordinates,
     pub time: String,
     pub description: String,
     pub air_temperature: f32,
@@ -65,7 +65,7 @@ impl TryFrom<serde_json::Value> for MetNowcast {
         let location = value["geometry"]["coordinates"]
             .as_array()
             .ok_or_else(|| NowcastError::new("Could not find location"))?;
-        let location = Location::new(
+        let location = Coordinates::new(
             location[0].as_f64().unwrap() as f32,
             location[1].as_f64().unwrap() as f32,
         );

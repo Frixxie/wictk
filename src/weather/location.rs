@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct OpenWeatherLocationEntry {
+pub struct OpenWeatherMapLocation {
     pub name: String,
     pub local_names: HashMap<String, String>,
     #[serde(flatten)]
-    pub location: Location,
+    pub location: Coordinates,
     pub country: String,
     pub state: Option<String>,
 }
@@ -33,21 +33,21 @@ impl std::fmt::Display for LocationError {
 impl std::error::Error for LocationError {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Location {
+pub struct Coordinates {
     pub lat: f32,
     pub lon: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct LocationString {
+pub struct CoordinatesAsString {
     pub lat: String,
     pub lon: String,
 }
 
-impl TryFrom<LocationString> for Location {
+impl TryFrom<CoordinatesAsString> for Coordinates {
     type Error = LocationError;
 
-    fn try_from(value: LocationString) -> Result<Self, Self::Error> {
+    fn try_from(value: CoordinatesAsString) -> Result<Self, Self::Error> {
         let lat = value
             .lat
             .parse::<f32>()
@@ -60,13 +60,13 @@ impl TryFrom<LocationString> for Location {
     }
 }
 
-impl Location {
+impl Coordinates {
     pub fn new(lat: f32, lon: f32) -> Self {
         Self { lat, lon }
     }
 }
 
-impl TryFrom<Value> for Location {
+impl TryFrom<Value> for Coordinates {
     type Error = serde_json::Error;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
@@ -89,10 +89,9 @@ impl TryFrom<Value> for City {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum LocationType {
+pub enum LocationQuery {
     Location(City),
-    Coordinates(Location),
-    CoordinatesString(LocationString),
+    Coordinates(CoordinatesAsString),
 }
 
 #[cfg(test)]
@@ -102,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_location() {
-        let location = Location::new(1.0, 2.0);
+        let location = Coordinates::new(1.0, 2.0);
         assert_eq!(location.lat, 1.0);
         assert_eq!(location.lon, 2.0);
     }
@@ -110,14 +109,14 @@ mod tests {
     #[test]
     fn deserialize_location() {
         let json = r#"{"lat": 1.0, "lon": 2.0}"#;
-        let location: Location = serde_json::from_str(json).unwrap();
+        let location: Coordinates = serde_json::from_str(json).unwrap();
         assert_eq!(location.lat, 1.0);
         assert_eq!(location.lon, 2.0);
     }
 
     #[test]
     fn serialize_location() {
-        let location = Location::new(1.0, 2.0);
+        let location = Coordinates::new(1.0, 2.0);
         let json = serde_json::to_string(&location).unwrap();
         assert_eq!(json, r#"{"lat":1.0,"lon":2.0}"#);
     }
@@ -131,19 +130,12 @@ mod tests {
     }
 
     #[test]
-    fn test_locationtype_coordinates_floats() {
-        let json = r#"{"lat": 1.0, "lon": 2.0}"#;
-        let location: LocationType = serde_json::from_str(json).unwrap();
-        assert_eq!(location, LocationType::Coordinates(Location::new(1.0, 2.0)));
-    }
-
-    #[test]
     fn test_locationtype_coordinates_strings() {
         let json = r#"{"lat": "1.0", "lon": "2.0"}"#;
-        let location: LocationType = serde_json::from_str(json).unwrap();
+        let location: LocationQuery = serde_json::from_str(json).unwrap();
         assert_eq!(
             location,
-            LocationType::CoordinatesString(LocationString {
+            LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "1.0".to_string(),
                 lon: "2.0".to_string()
             })
@@ -153,10 +145,10 @@ mod tests {
     #[test]
     fn test_locationtype_city() {
         let json = r#"{"location": "Oslo"}"#;
-        let location: LocationType = serde_json::from_str(json).unwrap();
+        let location: LocationQuery = serde_json::from_str(json).unwrap();
         assert_eq!(
             location,
-            LocationType::Location(City {
+            LocationQuery::Location(City {
                 location: "Oslo".to_string()
             })
         );

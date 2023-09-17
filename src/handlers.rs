@@ -1,7 +1,7 @@
 use crate::{
     utils::InternalApplicationError,
     weather::{
-        Alert, City, LocationType, MetAlert, MetNowcast, Nowcast, OpenWeatherLocationEntry,
+        Alert, City, LocationQuery, MetAlert, MetNowcast, Nowcast, OpenWeatherMapLocation,
         OpenWeatherNowcast,
     },
 };
@@ -12,7 +12,7 @@ use axum::{
 use reqwest::Client;
 use serde_json::Value;
 
-pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherLocationEntry>> {
+pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherMapLocation>> {
     client
         .get("http://api.openweathermap.org/geo/1.0/direct")
         .query(&[("q", location)])
@@ -20,7 +20,7 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
         .send()
         .await
         .ok()?
-        .json::<Vec<OpenWeatherLocationEntry>>()
+        .json::<Vec<OpenWeatherMapLocation>>()
         .await
         .ok()
 }
@@ -28,7 +28,7 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
 pub async fn get_geocoding(
     State(client): State<Client>,
     Query(query): Query<City>,
-) -> Result<Json<Vec<OpenWeatherLocationEntry>>, InternalApplicationError> {
+) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
     let res = geocoding(client, query.location).await.ok_or_else(|| {
         InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
     })?;
@@ -63,10 +63,10 @@ pub async fn alerts(
 
 pub async fn nowcasts(
     State(client): State<Client>,
-    Query(query): Query<LocationType>,
+    Query(query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
     let location = match query {
-        LocationType::Location(loc_query) => {
+        LocationQuery::Location(loc_query) => {
             let res = geocoding(client.clone(), loc_query.location)
                 .await
                 .ok_or_else(|| {
@@ -83,8 +83,7 @@ pub async fn nowcasts(
                 .location
                 .clone()
         }
-        LocationType::Coordinates(location) => location,
-        LocationType::CoordinatesString(location) => location.try_into().map_err(|_| {
+        LocationQuery::Coordinates(location) => location.try_into().map_err(|_| {
             InternalApplicationError::new("Failed to convert value to location type")
         })?,
     };
@@ -122,7 +121,7 @@ mod tests {
     use http::Uri;
     use pretty_assertions::assert_eq;
 
-    use crate::weather::{Location, LocationType};
+    use crate::weather::LocationQuery;
 
     #[test]
     fn parse_location() {
@@ -130,11 +129,11 @@ mod tests {
             .parse()
             .unwrap();
 
-        let query = Query::<LocationType>::try_from_uri(&uri).unwrap();
+        let query = Query::<LocationQuery>::try_from_uri(&uri).unwrap();
 
         assert_eq!(
             query.0,
-            LocationType::Location(crate::weather::City {
+            LocationQuery::Location(crate::weather::City {
                 location: "Oslo".to_string()
             })
         );
@@ -146,11 +145,11 @@ mod tests {
             .parse()
             .unwrap();
 
-        let query = Query::<LocationType>::try_from_uri(&uri).unwrap();
+        let query = Query::<LocationQuery>::try_from_uri(&uri).unwrap();
 
         assert_eq!(
             query.0,
-            LocationType::CoordinatesString(crate::weather::LocationString {
+            LocationQuery::Coordinates(crate::weather::CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string()
             })
