@@ -1,8 +1,8 @@
 use crate::{
     utils::InternalApplicationError,
     weather::{
-        Alert, Location, LocationQuery, LocationType, MetAlert, MetNowcast, Nowcast,
-        OpenWeatherLocationEntry, OpenWeatherNowcast,
+        Alert, City, LocationType, MetAlert, MetNowcast, Nowcast, OpenWeatherLocationEntry,
+        OpenWeatherNowcast,
     },
 };
 use axum::{
@@ -27,7 +27,7 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
 
 pub async fn get_geocoding(
     State(client): State<Client>,
-    Query(query): Query<LocationQuery>,
+    Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherLocationEntry>>, InternalApplicationError> {
     let res = geocoding(client, query.location).await.ok_or_else(|| {
         InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
@@ -84,6 +84,9 @@ pub async fn nowcasts(
                 .clone()
         }
         LocationType::Coordinates(location) => location,
+        LocationType::CoordinatesString(location) => location.try_into().map_err(|_| {
+            InternalApplicationError::new("Failed to convert value to location type")
+        })?,
     };
 
     let met_cast: MetNowcast = client
@@ -111,4 +114,46 @@ pub async fn nowcasts(
         .map_err(|_| InternalApplicationError::new("Failed to convert value to nowcast type"))?;
     let nowcasts: Vec<Nowcast> = vec![met_cast.into(), openweathermap.into()];
     Ok(Json(nowcasts))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::extract::Query;
+    use http::Uri;
+    use pretty_assertions::assert_eq;
+
+    use crate::weather::{Location, LocationType};
+
+    #[test]
+    fn parse_location() {
+        let uri: Uri = "http://localhost:3000/api/nowcasts?location=Oslo"
+            .parse()
+            .unwrap();
+
+        let query = Query::<LocationType>::try_from_uri(&uri).unwrap();
+
+        assert_eq!(
+            query.0,
+            LocationType::Location(crate::weather::City {
+                location: "Oslo".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parse_coordinates() {
+        let uri: Uri = "http://localhost:3000/api/nowcasts?lat=59.91273&lon=10.74609"
+            .parse()
+            .unwrap();
+
+        let query = Query::<LocationType>::try_from_uri(&uri).unwrap();
+
+        assert_eq!(
+            query.0,
+            LocationType::CoordinatesString(crate::weather::LocationString {
+                lat: "59.91273".to_string(),
+                lon: "10.74609".to_string()
+            })
+        );
+    }
 }
