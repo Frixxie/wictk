@@ -1,8 +1,7 @@
-FROM rust:1.72 as builder
+FROM rust:1.72 
 WORKDIR /usr/src/wictk
 COPY . .
+ARG APIKEY
+ENV OPENWEATHERMAPAPIKEY=$APIKEY
 RUN cargo install --path .
-
-FROM debian:bullseye-slim
-COPY --from=builder /usr/local/cargo/bin/wictk /usr/local/bin/wictk
 CMD ["wictk"]

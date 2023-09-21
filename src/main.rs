@@ -24,9 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/geocoding", get(get_geocoding))
         .with_state(client);
 
-    let status = Router::new().route("/", get(|| async { "Hello world" }));
-
-    let app = Router::new().nest("/api", api);
+    let app = Router::new()
+        .route("/", get(|| async { "Hello world" }))
+        .nest("/api", api);
 
     Server::bind(&"0.0.0.0:3000".parse()?)
         .serve(app.into_make_service())
