@@ -5,7 +5,7 @@ use std::{
 };
 
 use axum::response::{IntoResponse, Response};
-use hyper::StatusCode;
+use axum::http::StatusCode;
 
 #[derive(Debug)]
 pub struct InternalApplicationError {
