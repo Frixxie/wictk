@@ -27,7 +27,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-set
     steps:
     - uses: actions/checkout@v3
     - name: Build
