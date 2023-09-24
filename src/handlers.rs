@@ -19,7 +19,7 @@ pub async fn ping() -> &'static str {
 
 pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherMapLocation>> {
     match client
-        .get("http://api.openweathermap.org/geo/1.0/direct")
+        .get("https://api.openweathermap.org/geo/1.0/direct")
         .query(&[("q", location)])
         .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
         .send()
