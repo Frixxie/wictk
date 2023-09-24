@@ -12,23 +12,32 @@ use axum::{
 use reqwest::Client;
 use serde_json::Value;
 
+pub async fn ping() -> &'static str {
+    log::info!("GET /status/ping");
+    "pong"
+}
+
 pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherMapLocation>> {
-    client
+    match client
         .get("http://api.openweathermap.org/geo/1.0/direct")
         .query(&[("q", location)])
         .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
         .send()
         .await
-        .ok()?
-        .json::<Vec<OpenWeatherMapLocation>>()
-        .await
-        .ok()
+    {
+        Ok(result) => result.json::<Vec<OpenWeatherMapLocation>>().await.ok(),
+        Err(err) => {
+            log::error!("Error: {}", err);
+            None
+        }
+    }
 }
 
 pub async fn get_geocoding(
     State(client): State<Client>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
+    log::info!("GET /api/geocoding");
     let res = geocoding(client, query.location).await.ok_or_else(|| {
         InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
     })?;
@@ -38,14 +47,21 @@ pub async fn get_geocoding(
 pub async fn alerts(
     State(client): State<Client>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
+    log::info!("GET /api/alerts");
     let res: Vec<Alert> = client
         .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
         .send()
         .await
-        .map_err(|_| InternalApplicationError::new("Request to Met.no failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Request to Met.no failed")
+        })?
         .json::<Value>()
         .await
-        .map_err(|_| InternalApplicationError::new("Deserialization from Met.no failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Deserialization from Met.no failed")
+        })?
         .get("features")
         .ok_or(InternalApplicationError::new(
             "Failed to convert get features value to alert type",
@@ -65,6 +81,7 @@ pub async fn nowcasts(
     State(client): State<Client>,
     Query(query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
+    log::info!("GET /api/nowcasts");
     let location = match query {
         LocationQuery::Location(loc_query) => {
             let res = geocoding(client.clone(), loc_query.location)
@@ -93,12 +110,19 @@ pub async fn nowcasts(
         .query(&[("lat", location.lat), ("lon", location.lon)])
         .send()
         .await
-        .map_err(|_| InternalApplicationError::new("Request to Met.no failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Request to Met.no failed")
+        })?
         .json::<Value>()
         .await
-        .map_err(|_| InternalApplicationError::new("Deserialization from Met.no failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Deserialization from Met.no failed")
+        })?
         .try_into()
-        .map_err(|_| {
+        .map_err(|err| {
+            log::error!("Error {}", err);
             InternalApplicationError::new("Failed to convert from met value into nowcast type")
         })?;
     let openweathermap: OpenWeatherNowcast = client
@@ -107,12 +131,19 @@ pub async fn nowcasts(
         .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
         .send()
         .await
-        .map_err(|_| InternalApplicationError::new("Request to OpenWeatherMap failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Request to OpenWeatherMap failed")
+        })?
         .json::<Value>()
         .await
-        .map_err(|_| InternalApplicationError::new("Deserialization from OpenWeatherMap failed"))?
+        .map_err(|err| {
+            log::error!("Error {}", err);
+            InternalApplicationError::new("Deserialization from OpenWeatherMap failed")
+        })?
         .try_into()
-        .map_err(|_| {
+        .map_err(|err| {
+            log::error!("Error {}", err);
             InternalApplicationError::new(
                 "Failed to convert OpenWeatherMap value into nowcast type",
             )

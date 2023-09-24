@@ -3,11 +3,16 @@ mod utils;
 mod weather;
 
 use axum::{routing::get, Router, Server};
+use simple_logger::SimpleLogger;
 
 use crate::handlers::{alerts, get_geocoding, nowcasts};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .init()
+        .unwrap();
     let client_builder = reqwest::Client::builder();
     static APP_USER_AGENT: &str = concat!(
         env!("CARGO_PKG_NAME"),
@@ -24,8 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/geocoding", get(get_geocoding))
         .with_state(client);
 
+    let status = Router::new().route("/ping", get(handlers::ping));
+
     let app = Router::new()
-        .route("/", get(|| async { "Hello world" }))
+        .nest("/status", status)
         .nest("/api", api);
 
     Server::bind(&"0.0.0.0:3000".parse()?)
