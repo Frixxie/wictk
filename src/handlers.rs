@@ -18,7 +18,6 @@ pub async fn ping() -> &'static str {
 }
 
 pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherMapLocation>> {
-    log::info!("Fetching geocoding data from OpenWeatherMap {}", location);
     match client
         .get("https://api.openweathermap.org/geo/1.0/direct")
         .query(&[("q", location)])
@@ -26,10 +25,13 @@ pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeath
         .send()
         .await
     {
-        Ok(result) => {
-            log::info!("OK {}", result.status());
-            result.json::<Vec<OpenWeatherMapLocation>>().await.ok()
-        }
+        Ok(result) => match result.json::<Vec<OpenWeatherMapLocation>>().await {
+            Ok(res) => Some(res),
+            Err(err) => {
+                log::error!("Error: {}", err);
+                None
+            }
+        },
         Err(err) => {
             log::error!("Error: {}", err);
             None
