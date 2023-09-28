@@ -1,8 +1,8 @@
 use crate::{
     utils::InternalApplicationError,
     weather::{
-        Alert, City, LocationQuery, MetAlert, MetNowcast, Nowcast, OpenWeatherMapLocation,
-        OpenWeatherNowcast,
+        fetch_met_nowcast, fetch_met_openweathermap, Alert, City, LocationQuery, MetAlert,
+        MetNowcast, Nowcast, OpenWeatherMapLocation, OpenWeatherNowcast,
     },
 };
 use axum::{
@@ -112,49 +112,32 @@ pub async fn nowcasts(
         })?,
     };
 
-    let met_cast: MetNowcast = client
-        .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
-        .query(&[("lat", location.lat), ("lon", location.lon)])
-        .send()
+    let met_cast_handle = tokio::spawn(fetch_met_nowcast(client.clone(), location.clone()));
+    let openweathermap_cast_handle =
+        tokio::spawn(fetch_met_openweathermap(client.clone(), location.clone()));
+
+    let met_cast = met_cast_handle
         .await
         .map_err(|err| {
             log::error!("Error {}", err);
-            InternalApplicationError::new("Request to Met.no failed")
+            InternalApplicationError::new("Failed to get Met.no nowcast")
         })?
-        .json::<Value>()
-        .await
         .map_err(|err| {
             log::error!("Error {}", err);
-            InternalApplicationError::new("Deserialization from Met.no failed")
-        })?
-        .try_into()
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new("Failed to convert from met value into nowcast type")
+            InternalApplicationError::new("Failed to get Met.no nowcast")
         })?;
-    let openweathermap: OpenWeatherNowcast = client
-        .get("https://api.openweathermap.org/data/2.5/weather")
-        .query(&[("lat", location.lat), ("lon", location.lon)])
-        .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
-        .send()
+
+    let openweathermap = openweathermap_cast_handle
         .await
         .map_err(|err| {
             log::error!("Error {}", err);
-            InternalApplicationError::new("Request to OpenWeatherMap failed")
+            InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
         })?
-        .json::<Value>()
-        .await
         .map_err(|err| {
             log::error!("Error {}", err);
-            InternalApplicationError::new("Deserialization from OpenWeatherMap failed")
-        })?
-        .try_into()
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new(
-                "Failed to convert OpenWeatherMap value into nowcast type",
-            )
+            InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
         })?;
+
     let nowcasts: Vec<Nowcast> = vec![met_cast.into(), openweathermap.into()];
     Ok(Json(nowcasts))
 }
