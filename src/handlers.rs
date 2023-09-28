@@ -1,8 +1,7 @@
 use crate::{
     utils::InternalApplicationError,
     weather::{
-        fetch_met_nowcast, fetch_met_openweathermap, Alert, City, LocationQuery, MetAlert,
-        MetNowcast, Nowcast, OpenWeatherMapLocation, OpenWeatherNowcast,
+        fetch_met_nowcast, fetch_met_openweathermap, Alert, City, LocationQuery, MetAlert, Nowcast, OpenWeatherMapLocation,
     },
 };
 use axum::{
