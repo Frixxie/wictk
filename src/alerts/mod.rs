@@ -1,3 +1,5 @@
-mod alert;
+mod alerts;
+mod met;
 
-pub use alert::{Alert, MetAlert};
+pub use alerts::{Alert, AlertFetcher};
+pub use met::MetAlert;

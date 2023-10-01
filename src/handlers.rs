@@ -1,6 +1,6 @@
 use crate::{
-    alerts::{Alert, MetAlert},
-    location::{City, LocationQuery, OpenWeatherMapLocation},
+    alerts::{Alert, AlertFetcher, MetAlert},
+    location::{City, Coordinates, LocationQuery, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     utils::InternalApplicationError,
 };
@@ -9,7 +9,6 @@ use axum::{
     Json,
 };
 use reqwest::Client;
-use serde_json::Value;
 
 pub async fn ping() -> &'static str {
     log::info!("GET /status/ping");
@@ -54,33 +53,13 @@ pub async fn alerts(
     State(client): State<Client>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
     log::info!("GET /api/alerts");
-    let res: Vec<Alert> = client
-        .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
-        .send()
+    let alerts = MetAlert::fetch(client.clone(), Coordinates::new(59.91273, 10.74609))
         .await
         .map_err(|err| {
             log::error!("Error {}", err);
-            InternalApplicationError::new("Request to Met.no failed")
-        })?
-        .json::<Value>()
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new("Deserialization from Met.no failed")
-        })?
-        .get("features")
-        .ok_or(InternalApplicationError::new(
-            "Failed to convert get features value to alert type",
-        ))?
-        .as_array()
-        .ok_or(InternalApplicationError::new(
-            "Failed to convert value to alert type",
-        ))?
-        .iter()
-        .filter_map(|alert| MetAlert::try_from(alert.clone()).ok())
-        .map(|alert| alert.into())
-        .collect();
-    Ok(Json(res))
+            InternalApplicationError::new("Failed to get Met.no alerts")
+        })?;
+    Ok(Json(alerts))
 }
 
 pub async fn nowcasts(

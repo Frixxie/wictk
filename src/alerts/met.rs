@@ -1,22 +1,14 @@
+use async_trait::async_trait;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Alert {
-    /// The alert was issued by the National Weather Service.
-    Met(MetAlert),
-    /// The alert was issued by a local authority, typically a county.
-    Nve,
-}
+use crate::location::Coordinates;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Severity {
-    /// The alert is for a moderate event.
-    Yellow,
-    /// The alert is for a severe event.
-    Orange,
-    /// The alert is for an extreme event.
-    Red,
-}
+use super::{
+    alerts::{AlertError, AlertFetcher, Severity},
+    Alert,
+};
 
 impl From<MetAlert> for Alert {
     fn from(met: MetAlert) -> Self {
@@ -27,7 +19,7 @@ impl From<MetAlert> for Alert {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimeDuration {
     from: String,
-    until: String
+    until: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -37,28 +29,7 @@ pub struct MetAlert {
     pub description: String,
     pub certainty: String,
     pub event: String,
-    pub duration: TimeDuration
-}
-
-#[derive(Debug)]
-pub struct AlertError {
-    pub message: String,
-}
-
-impl std::fmt::Display for AlertError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "AlertError: {}", self.message)
-    }
-}
-
-impl std::error::Error for AlertError {}
-
-impl AlertError {
-    pub fn new(message: &str) -> Self {
-        AlertError {
-            message: message.to_owned(),
-        }
-    }
+    pub duration: TimeDuration,
 }
 
 impl TryFrom<serde_json::Value> for MetAlert {
@@ -97,7 +68,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
             until: value["when"]["interval"][1]
                 .as_str()
                 .ok_or_else(|| AlertError::new("Failed to parse until"))?
-                .to_owned()
+                .to_owned(),
         };
         Ok(MetAlert {
             severity,
@@ -105,13 +76,43 @@ impl TryFrom<serde_json::Value> for MetAlert {
             description,
             certainty,
             event,
-            duration
+            duration,
         })
     }
 }
 
-#[cfg(test)]
+#[async_trait]
+impl AlertFetcher for MetAlert {
+    async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
+        let result: Vec<Alert> = client
+            .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
+            .send()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                AlertError::new("Request to Met.no failed")
+            })?
+            .json::<Value>()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                AlertError::new("Deserialization from Met.no failed")
+            })?
+            .get("features")
+            .ok_or(AlertError::new(
+                "Failed to convert get features value to alert type",
+            ))?
+            .as_array()
+            .ok_or(AlertError::new("Failed to convert value to alert type"))?
+            .iter()
+            .filter_map(|alert| MetAlert::try_from(alert.clone()).ok())
+            .map(|alert| alert.into())
+            .collect();
+        Ok(result)
+    }
+}
 
+#[cfg(test)]
 mod tests {
     use serde_json::Value;
 
@@ -138,5 +139,13 @@ mod tests {
         assert_eq!(alert.event, "forestFire");
         assert_eq!(alert.duration.from, "2023-08-10T22:00:00+00:00");
         assert_eq!(alert.duration.until, "2023-08-14T22:00:00+00:00");
+    }
+
+    #[tokio::test]
+    async fn met_fetch() {
+        let client = Client::new();
+        let location = Coordinates::new(68.3229, 15.4258);
+        let alerts = MetAlert::fetch(client, location).await;
+        assert!(alerts.is_ok());
     }
 }
