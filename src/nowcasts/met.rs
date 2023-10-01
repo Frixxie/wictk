@@ -103,20 +103,17 @@ impl NowcastFetcher for MetNowcast {
             .await
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Request to Met.no failed")
             })?
             .json::<Value>()
             .await
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Deserialization from Met.no failed")
             })?
             .try_into()
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Failed to convert from met value into nowcast type")
             })?;
         Ok(met_cast.into())
@@ -160,7 +157,6 @@ mod tests {
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let location = Coordinates::new(63.4308, 10.4034);
         let nowcast = MetNowcast::fetch(client, location).await;
-        dbg!(&nowcast);
         assert!(nowcast.is_ok())
     }
 }
