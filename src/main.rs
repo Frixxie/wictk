@@ -1,6 +1,8 @@
 mod handlers;
 mod utils;
-mod weather;
+mod location;
+mod alerts;
+mod nowcasts;
 
 use axum::{routing::get, Router, Server};
 use simple_logger::SimpleLogger;

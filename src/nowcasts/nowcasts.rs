@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::Coordinates;
+use crate::location::Coordinates;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Nowcast {

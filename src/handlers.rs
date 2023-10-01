@@ -1,8 +1,8 @@
 use crate::{
+    alerts::{Alert, MetAlert},
+    location::{City, LocationQuery, OpenWeatherMapLocation},
+    nowcasts::{fetch_met_nowcast, fetch_met_openweathermap, Nowcast},
     utils::InternalApplicationError,
-    weather::{
-        fetch_met_nowcast, fetch_met_openweathermap, Alert, City, LocationQuery, MetAlert, Nowcast, OpenWeatherMapLocation,
-    },
 };
 use axum::{
     extract::{Query, State},
@@ -147,7 +147,7 @@ mod tests {
     use http::Uri;
     use pretty_assertions::assert_eq;
 
-    use crate::weather::LocationQuery;
+    use crate::location::{City, CoordinatesAsString, LocationQuery};
 
     #[test]
     fn parse_location() {
@@ -159,7 +159,7 @@ mod tests {
 
         assert_eq!(
             query.0,
-            LocationQuery::Location(crate::weather::City {
+            LocationQuery::Location(City {
                 location: "Oslo".to_string()
             })
         );
@@ -175,7 +175,7 @@ mod tests {
 
         assert_eq!(
             query.0,
-            LocationQuery::Coordinates(crate::weather::CoordinatesAsString {
+            LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string()
             })
