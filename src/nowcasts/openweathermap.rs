@@ -117,20 +117,17 @@ impl NowcastFetcher for OpenWeatherNowcast {
             .await
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Request to OpenWeatherMap failed")
             })?
             .json::<Value>()
             .await
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Deserialization from OpenWeatherMap failed")
             })?
             .try_into()
             .map_err(|err| {
                 log::error!("Error {}", err);
-                dbg!(&err);
                 NowcastError::new("Failed to convert OpenWeatherMap value into nowcast type")
             })?;
         Ok(openweathermap.into())
@@ -182,7 +179,6 @@ mod tests {
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let location = Coordinates::new(63.4308, 10.4034);
         let nowcast = OpenWeatherNowcast::fetch(client, location).await;
-        dbg!(&nowcast);
         assert!(nowcast.is_ok())
     }
 }
