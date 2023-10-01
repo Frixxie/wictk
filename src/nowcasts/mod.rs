@@ -1,3 +1,8 @@
+mod met;
 mod nowcasts;
+mod openweathermap;
 
-pub use nowcasts::{MetNowcast, Nowcast, NowcastError, OpenWeatherNowcast, NowcastFetcher};
+pub use nowcasts::{Nowcast, NowcastError, NowcastFetcher};
+
+pub use met::MetNowcast;
+pub use openweathermap::OpenWeatherNowcast;
