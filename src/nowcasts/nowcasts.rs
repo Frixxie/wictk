@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -10,6 +11,11 @@ use crate::location::Coordinates;
 pub enum Nowcast {
     Met(MetNowcast),
     OpenWeather(OpenWeatherNowcast),
+}
+
+#[async_trait]
+pub trait NowcastFetcher {
+    async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,31 +131,35 @@ impl TryFrom<serde_json::Value> for MetNowcast {
     }
 }
 
-pub async fn fetch_met_nowcast(
-    client: Client,
-    location: Coordinates,
-) -> Result<MetNowcast, NowcastError> {
-    let met_cast: MetNowcast = client
-        .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
-        .query(&[("lat", location.lat), ("lon", location.lon)])
-        .send()
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            NowcastError::new("Request to Met.no failed")
-        })?
-        .json::<Value>()
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            NowcastError::new("Deserialization from Met.no failed")
-        })?
-        .try_into()
-        .map_err(|err| {
+#[async_trait]
+impl NowcastFetcher for MetNowcast {
+    async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
+        let met_cast: MetNowcast = client
+            .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
+            .query(&[("lat", location.lat), ("lon", location.lon)])
+            .send()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Request to Met.no failed")
+            })?
+            .json::<Value>()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Deserialization from Met.no failed")
+            })?
+            .try_into()
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Failed to convert from met value into nowcast type")
+            })?;
+        let result = met_cast.try_into().map_err(|err| {
             log::error!("Error {}", err);
             NowcastError::new("Failed to convert from met value into nowcast type")
         })?;
-    Ok(met_cast)
+        Ok(result)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -245,32 +255,32 @@ impl TryFrom<serde_json::Value> for OpenWeatherNowcast {
     }
 }
 
-pub async fn fetch_met_openweathermap(
-    client: Client,
-    location: Coordinates,
-) -> Result<OpenWeatherNowcast, NowcastError> {
-    let openweathermap: OpenWeatherNowcast = client
-        .get("https://api.openweathermap.org/data/2.5/weather")
-        .query(&[("lat", location.lat), ("lon", location.lon)])
-        .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
-        .send()
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            NowcastError::new("Request to OpenWeatherMap failed")
-        })?
-        .json::<Value>()
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            NowcastError::new("Deserialization from OpenWeatherMap failed")
-        })?
-        .try_into()
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            NowcastError::new("Failed to convert OpenWeatherMap value into nowcast type")
-        })?;
-    Ok(openweathermap)
+#[async_trait]
+impl NowcastFetcher for OpenWeatherNowcast {
+    async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
+        let openweathermap: OpenWeatherNowcast = client
+            .get("https://api.openweathermap.org/data/2.5/weather")
+            .query(&[("lat", location.lat), ("lon", location.lon)])
+            .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+            .send()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Request to OpenWeatherMap failed")
+            })?
+            .json::<Value>()
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Deserialization from OpenWeatherMap failed")
+            })?
+            .try_into()
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                NowcastError::new("Failed to convert OpenWeatherMap value into nowcast type")
+            })?;
+        Ok(openweathermap.into())
+    }
 }
 
 #[cfg(test)]

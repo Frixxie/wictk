@@ -1,7 +1,7 @@
 use crate::{
     alerts::{Alert, MetAlert},
     location::{City, LocationQuery, OpenWeatherMapLocation},
-    nowcasts::{fetch_met_nowcast, fetch_met_openweathermap, Nowcast},
+    nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     utils::InternalApplicationError,
 };
 use axum::{
@@ -111,9 +111,9 @@ pub async fn nowcasts(
         })?,
     };
 
-    let met_cast_handle = tokio::spawn(fetch_met_nowcast(client.clone(), location.clone()));
+    let met_cast_handle = tokio::spawn(MetNowcast::fetch(client.clone(), location.clone()));
     let openweathermap_cast_handle =
-        tokio::spawn(fetch_met_openweathermap(client.clone(), location.clone()));
+        tokio::spawn(OpenWeatherNowcast::fetch(client.clone(), location.clone()));
 
     let met_cast = met_cast_handle
         .await
