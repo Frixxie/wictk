@@ -160,4 +160,49 @@ mod tests {
             })
         );
     }
+
+    #[tokio::test]
+    async fn get_geocoding() {
+        let client = reqwest::Client::new();
+        let res = super::geocoding(client, "Oslo".to_string()).await;
+        assert!(res.is_some());
+        assert_eq!(res.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn get_alerts() {
+        let client_builder = reqwest::Client::builder();
+        static APP_USER_AGENT: &str = concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION"),
+            " ",
+            env!("CARGO_PKG_HOMEPAGE"),
+        );
+        let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+        let res = super::alerts(axum::extract::State(client)).await;
+        assert!(res.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_nowcasts() {
+        let client_builder = reqwest::Client::builder();
+        static APP_USER_AGENT: &str = concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION"),
+            " ",
+            env!("CARGO_PKG_HOMEPAGE"),
+        );
+        let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+        let res = super::nowcasts(
+            axum::extract::State(client.clone()),
+            axum::extract::Query(super::LocationQuery::Coordinates(CoordinatesAsString {
+                lat: "59.91273".to_string(),
+                lon: "10.74609".to_string(),
+            })),
+        )
+        .await;
+        assert!(res.is_ok());
+    }
 }
