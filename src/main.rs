@@ -1,13 +1,14 @@
-mod handlers;
-mod utils;
-mod location;
 mod alerts;
+mod handlers;
+mod location;
 mod nowcasts;
+mod utils;
 
 use axum::{routing::get, Router, Server};
+use handlers::ping;
 use simple_logger::SimpleLogger;
 
-use crate::handlers::{alerts, get_geocoding, nowcasts};
+use crate::handlers::{alerts, geocoding, nowcasts};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,14 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
-        .route("/geocoding", get(get_geocoding))
+        .route("/geocoding", get(geocoding))
         .with_state(client);
 
-    let status = Router::new().route("/ping", get(handlers::ping));
+    let status = Router::new().route("/ping", get(ping));
 
-    let app = Router::new()
-        .nest("/status", status)
-        .nest("/api", api);
+    let app = Router::new().nest("/status", status).nest("/api", api);
 
     Server::bind(&"0.0.0.0:3000".parse()?)
         .serve(app.into_make_service())

@@ -15,37 +15,17 @@ pub async fn ping() -> &'static str {
     "pong"
 }
 
-pub async fn geocoding(client: Client, location: String) -> Option<Vec<OpenWeatherMapLocation>> {
-    match client
-        .get("https://api.openweathermap.org/geo/1.0/direct")
-        .query(&[("q", location)])
-        .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
-        .send()
-        .await
-    {
-        Ok(result) => match result.json::<Vec<OpenWeatherMapLocation>>().await {
-            Ok(res) => Some(res),
-            Err(err) => {
-                log::error!("Error: {}", err);
-                None
-            }
-        },
-        Err(err) => {
-            log::error!("Error: {}", err);
-            None
-        }
-    }
-}
-
-pub async fn get_geocoding(
+pub async fn geocoding(
     State(client): State<Client>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
     log::info!("GET /api/geocoding");
-    let res = geocoding(client, query.location).await.ok_or_else(|| {
-        log::error!("Failed to get geocoding data from OpenWeatherMap");
-        InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
-    })?;
+    let res = OpenWeatherMapLocation::fetch(client, query.location)
+        .await
+        .ok_or_else(|| {
+            log::error!("Failed to get geocoding data from OpenWeatherMap");
+            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+        })?;
     Ok(Json(res))
 }
 
@@ -69,7 +49,7 @@ pub async fn nowcasts(
     log::info!("GET /api/nowcasts");
     let location = match query {
         LocationQuery::Location(loc_query) => {
-            let res = geocoding(client.clone(), loc_query.location)
+            let res = OpenWeatherMapLocation::fetch(client.clone(), loc_query.location)
                 .await
                 .ok_or_else(|| {
                     InternalApplicationError::new(
@@ -164,8 +144,14 @@ mod tests {
     #[tokio::test]
     async fn get_geocoding() {
         let client = reqwest::Client::new();
-        let res = super::geocoding(client, "Oslo".to_string()).await;
-        assert!(res.is_some());
+        let res = super::geocoding(
+            axum::extract::State(client.clone()),
+            axum::extract::Query(super::City {
+                location: "Oslo".to_string(),
+            }),
+        )
+        .await;
+        assert!(res.is_ok());
         assert_eq!(res.unwrap().len(), 1);
     }
 

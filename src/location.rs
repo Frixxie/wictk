@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -11,6 +12,30 @@ pub struct OpenWeatherMapLocation {
     pub location: Coordinates,
     pub country: String,
     pub state: Option<String>,
+}
+
+impl OpenWeatherMapLocation {
+    pub async fn fetch(client: Client, location: String) -> Option<Vec<Self>> {
+        match client
+            .get("https://api.openweathermap.org/geo/1.0/direct")
+            .query(&[("q", location)])
+            .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+            .send()
+            .await
+        {
+            Ok(result) => match result.json::<Vec<OpenWeatherMapLocation>>().await {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    log::error!("Error: {}", err);
+                    None
+                }
+            },
+            Err(err) => {
+                log::error!("Error: {}", err);
+                None
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -152,5 +177,13 @@ mod tests {
                 location: "Oslo".to_string()
             })
         );
+    }
+
+    #[tokio::test]
+    async fn test_fetch_location() {
+        let client = reqwest::Client::new();
+        let res = OpenWeatherMapLocation::fetch(client, "Oslo".to_string()).await;
+        assert!(res.is_some());
+        assert_eq!(res.unwrap().len(), 1);
     }
 }
