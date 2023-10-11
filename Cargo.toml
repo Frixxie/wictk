@@ -1,6 +1,6 @@
 [package]
 name = "wictk"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
 
@@ -9,6 +9,7 @@ homepage = "https://github.com/Frixxie/wictk"
 [dependencies]
 async-trait = "0.1.73"
 axum = { version = "0.6.20", features = ["json"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 log = "0.4.20"
 reqwest = { version = "0.11.22", features = ["json"] }
 serde = { version = "1.0.188", features = ["derive"] }

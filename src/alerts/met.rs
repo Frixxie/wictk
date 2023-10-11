@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,8 +19,8 @@ impl From<MetAlert> for Alert {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimeDuration {
-    from: String,
-    until: String,
+    from: DateTime<Utc>,
+    until: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -64,11 +65,13 @@ impl TryFrom<serde_json::Value> for MetAlert {
             from: value["when"]["interval"][0]
                 .as_str()
                 .ok_or_else(|| AlertError::new("Failed to parse from"))?
-                .to_owned(),
+                .parse()
+                .map_err(|_| AlertError::new("Failed to parse from"))?,
             until: value["when"]["interval"][1]
                 .as_str()
                 .ok_or_else(|| AlertError::new("Failed to parse until"))?
-                .to_owned(),
+                .parse()
+                .map_err(|_| AlertError::new("Failed to parse until"))?,
         };
         Ok(MetAlert {
             severity,
@@ -137,8 +140,15 @@ mod tests {
         );
         assert_eq!(alert.certainty, "Likely");
         assert_eq!(alert.event, "forestFire");
-        assert_eq!(alert.duration.from, "2023-08-10T22:00:00+00:00");
-        assert_eq!(alert.duration.until, "2023-08-14T22:00:00+00:00");
+        assert_eq!(
+            alert.duration.from.to_rfc3339(),
+            "2023-08-10T22:00:00+00:00"
+        );
+        assert_eq!(
+            alert.duration.until.to_rfc3339(),
+            "2023-08-14T22:00:00+00:00"
+        );
+
     }
 
     #[tokio::test]

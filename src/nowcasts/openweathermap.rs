@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,7 +10,7 @@ use super::{Nowcast, NowcastError, NowcastFetcher};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OpenWeatherNowcast {
-    pub dt: u32,
+    pub dt: DateTime<Utc>,
     pub name: String,
     pub country: String,
     pub lon: f32,
@@ -30,9 +31,13 @@ impl TryFrom<serde_json::Value> for OpenWeatherNowcast {
     type Error = NowcastError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let dt = value["dt"]
-            .as_u64()
-            .ok_or(NowcastError::new("Could not find dt"))? as u32;
+        let dt = DateTime::from_timestamp(
+            value["dt"]
+                .as_i64()
+                .ok_or(NowcastError::new("Could not find dt"))?,
+            0,
+        )
+        .ok_or(NowcastError::new("Could not find dt"))?;
         let name = value["name"]
             .as_str()
             .ok_or(NowcastError::new("Could not find name"))?
@@ -149,7 +154,7 @@ mod tests {
 
         let open_weather = OpenWeatherNowcast::try_from(json_value).unwrap();
 
-        assert_eq!(open_weather.dt, 1692185222);
+        assert_eq!(open_weather.dt.timestamp(), 1692185222);
         assert_eq!(open_weather.name, "Trondheim");
         assert_eq!(open_weather.country, "NO");
         assert_eq!(open_weather.lon, 10.3951);

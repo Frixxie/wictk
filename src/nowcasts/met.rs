@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,7 +10,7 @@ use super::{Nowcast, NowcastError, NowcastFetcher};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetNowcast {
-    pub time: String,
+    pub time: DateTime<Utc>,
     pub location: Coordinates,
     pub description: String,
     pub air_temperature: f32,
@@ -74,7 +75,10 @@ impl TryFrom<serde_json::Value> for MetNowcast {
 
         Ok(Self {
             location,
-            time: time.to_string(),
+            time: time
+                .to_string()
+                .parse()
+                .map_err(|_| NowcastError::new("Failed to parse time"))?,
             description: description.to_string(),
             air_temperature: air_temperature as f32,
             relative_humidity: relative_humidity as f32,
@@ -134,7 +138,7 @@ mod tests {
 
         assert_eq!(met.location.lat, 10.4034);
         assert_eq!(met.location.lon, 63.4308);
-        assert_eq!(met.time, "2023-08-14T18:16:07Z");
+        assert_eq!(met.time.to_string(), "2023-08-14 18:16:07 UTC");
         assert_eq!(met.description, "cloudy");
         assert_eq!(met.air_temperature, 17.7);
         assert_eq!(met.relative_humidity, 80.5);
