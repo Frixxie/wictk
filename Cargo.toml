@@ -7,7 +7,7 @@ homepage = "https://github.com/Frixxie/wictk"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 axum = { version = "0.6.20", features = ["json"] }
 chrono = { version = "0.4.31", features = ["serde"] }
 log = "0.4.20"
