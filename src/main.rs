@@ -4,14 +4,15 @@ mod location;
 mod nowcasts;
 mod utils;
 
-use axum::{routing::get, Router, Server};
+use axum::{routing::get, serve, Router};
 use handlers::ping;
 use simple_logger::SimpleLogger;
+use tokio::net::TcpListener;
 
 use crate::handlers::{alerts, geocoding, nowcasts};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), anyhow::Error> {
     SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
         .init()
@@ -36,9 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new().nest("/status", status).nest("/api", api);
 
-    Server::bind(&"0.0.0.0:3000".parse()?)
-        .serve(app.into_make_service())
-        .await?;
+    let listener = TcpListener::bind("0.0.0.0:3000").await?;
+    serve(listener, app).await?;
 
     Ok(())
 }
