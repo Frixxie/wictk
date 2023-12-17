@@ -103,7 +103,7 @@ pub async fn nowcasts(
 #[cfg(test)]
 mod tests {
     use axum::extract::Query;
-    use http::Uri;
+    use axum::http::Uri;
     use pretty_assertions::assert_eq;
 
     use crate::location::{City, CoordinatesAsString, LocationQuery};
