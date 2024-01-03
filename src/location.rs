@@ -7,7 +7,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenWeatherMapLocation {
     pub name: String,
-    pub local_names: HashMap<String, String>,
+    pub local_names: Option<HashMap<String, String>>,
     #[serde(flatten)]
     pub location: Coordinates,
     pub country: String,

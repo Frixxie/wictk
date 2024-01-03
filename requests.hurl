@@ -16,5 +16,8 @@ HTTP 200
 GET http://{{url}}/api/nowcasts?location=Oslo
 HTTP 200
 
+GET http://{{url}}/api/nowcasts?location=Elgeseter
+HTTP 200
+
 GET http://{{url}}/api/nowcasts?location=Heimdal
-HTTP 500
+HTTP 200

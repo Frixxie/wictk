@@ -8,6 +8,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use log::error;
 use reqwest::Client;
 
 pub async fn ping() -> &'static str {
@@ -77,26 +78,34 @@ pub async fn nowcasts(
     let met_cast = met_cast_handle
         .await
         .map_err(|err| {
-            log::error!("Error {}", err);
+            error!("Error {}", err);
             InternalApplicationError::new("Failed to get Met.no nowcast")
-        })?
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new("Failed to get Met.no nowcast")
-        })?;
+        })
+        .and_then(|res| {
+            res.map_err(|err| {
+                log::error!("Error {}", err);
+                InternalApplicationError::new("Failed to get Met.no nowcast")
+            })
+        });
 
     let openweathermap = openweathermap_cast_handle
         .await
         .map_err(|err| {
-            log::error!("Error {}", err);
+            error!("Error {}", err);
             InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
-        })?
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
-        })?;
+        })
+        .and_then(|res| {
+            res.map_err(|err| {
+                log::error!("Error {}", err);
+                InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
+            })
+        });
 
-    let nowcasts: Vec<Nowcast> = vec![met_cast.into(), openweathermap.into()];
+    let nowcasts: Vec<Nowcast> = vec![met_cast, openweathermap]
+        .into_iter()
+        .filter_map(|res| res.ok())
+        .collect();
+
     Ok(Json(nowcasts))
 }
 

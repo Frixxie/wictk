@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use log::error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -26,10 +27,15 @@ pub struct OpenWeatherNowcast {
     pub pressure: u32,
 }
 
-impl TryFrom<serde_json::Value> for OpenWeatherNowcast {
+impl TryFrom<String> for OpenWeatherNowcast {
     type Error = NowcastError;
 
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value: Value = serde_json::from_str(&value).map_err(|err| {
+            error!("Error {}", err);
+            NowcastError::new("Deserialization from OpenWeatherMap failed")
+        })?;
+
         let dt = DateTime::from_timestamp(
             value["dt"]
                 .as_i64()
@@ -112,28 +118,29 @@ impl From<OpenWeatherNowcast> for Nowcast {
 
 impl NowcastFetcher for OpenWeatherNowcast {
     async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
-        let openweathermap: OpenWeatherNowcast = client
+        let response: String = client
             .get("https://api.openweathermap.org/data/2.5/weather")
             .query(&[("lat", location.lat), ("lon", location.lon)])
             .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
             .send()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                error!("Error {}", err);
                 NowcastError::new("Request to OpenWeatherMap failed")
             })?
-            .json::<Value>()
+            .text()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                error!("Error {}", err);
                 NowcastError::new("Deserialization from OpenWeatherMap failed")
-            })?
-            .try_into()
-            .map_err(|err| {
-                log::error!("Error {}", err);
-                NowcastError::new("Failed to convert OpenWeatherMap value into nowcast type")
             })?;
-        Ok(openweathermap.into())
+
+        let result: OpenWeatherNowcast = serde_json::from_str(&response).map_err(|err| {
+            error!("Error {}", err);
+            NowcastError::new("Deserialization from OpenWeatherMap failed")
+        })?;
+
+        Ok(result.into())
     }
 }
 
