@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -6,10 +5,7 @@ use serde_json::Value;
 
 use crate::location::Coordinates;
 
-use super::{
-    alerts::{AlertError, AlertFetcher, Severity},
-    Alert,
-};
+use super::{Alert, AlertError, AlertFetcher, Severity};
 
 impl From<MetAlert> for Alert {
     fn from(met: MetAlert) -> Self {
@@ -84,7 +80,6 @@ impl TryFrom<serde_json::Value> for MetAlert {
     }
 }
 
-#[async_trait]
 impl AlertFetcher for MetAlert {
     async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
         let result: Vec<Alert> = client
@@ -148,7 +143,6 @@ mod tests {
             alert.duration.until.to_rfc3339(),
             "2023-08-14T22:00:00+00:00"
         );
-
     }
 
     #[tokio::test]
