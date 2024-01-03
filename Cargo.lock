@@ -1420,7 +1420,6 @@ name = "wictk"
 version = "0.1.10"
 dependencies = [
  "anyhow",
- "async-trait",
  "axum",
  "chrono",
  "log",

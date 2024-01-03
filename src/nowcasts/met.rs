@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -97,7 +96,6 @@ impl From<MetNowcast> for Nowcast {
     }
 }
 
-#[async_trait]
 impl NowcastFetcher for MetNowcast {
     async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
         let met_cast: MetNowcast = client
