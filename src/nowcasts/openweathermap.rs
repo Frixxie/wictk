@@ -27,15 +27,10 @@ pub struct OpenWeatherNowcast {
     pub pressure: u32,
 }
 
-impl TryFrom<String> for OpenWeatherNowcast {
+impl TryFrom<Value> for OpenWeatherNowcast {
     type Error = NowcastError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let value: Value = serde_json::from_str(&value).map_err(|err| {
-            error!("Error {}", err);
-            NowcastError::new("Deserialization from OpenWeatherMap failed")
-        })?;
-
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         let dt = DateTime::from_timestamp(
             value["dt"]
                 .as_i64()
@@ -118,29 +113,29 @@ impl From<OpenWeatherNowcast> for Nowcast {
 
 impl NowcastFetcher for OpenWeatherNowcast {
     async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
-        let response: String = client
+        let openweathermap: OpenWeatherNowcast = client
             .get("https://api.openweathermap.org/data/2.5/weather")
             .query(&[("lat", location.lat), ("lon", location.lon)])
             .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+            .query(&[("units", "metric")])
             .send()
             .await
             .map_err(|err| {
                 error!("Error {}", err);
                 NowcastError::new("Request to OpenWeatherMap failed")
             })?
-            .text()
+            .json::<Value>()
             .await
             .map_err(|err| {
                 error!("Error {}", err);
                 NowcastError::new("Deserialization from OpenWeatherMap failed")
+            })?
+            .try_into()
+            .map_err(|err| {
+                error!("Error {}", err);
+                NowcastError::new("Failed to convert OpenWeatherMap value into nowcast type")
             })?;
-
-        let result: OpenWeatherNowcast = serde_json::from_str(&response).map_err(|err| {
-            error!("Error {}", err);
-            NowcastError::new("Deserialization from OpenWeatherMap failed")
-        })?;
-
-        Ok(result.into())
+        Ok(openweathermap.into())
     }
 }
 
