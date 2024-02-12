@@ -9,7 +9,7 @@ homepage = "https://github.com/Frixxie/wictk"
 [dependencies]
 anyhow = "1.0.79"
 axum = { version = "0.7.4", features = ["json"] }
-chrono = { version = "0.4.33", features = ["serde"] }
+chrono = { version = "0.4.34", features = ["serde"] }
 log = "0.4.20"
 reqwest = { version = "0.11.23", features = ["json"] }
 serde = { version = "1.0.196", features = ["derive"] }
