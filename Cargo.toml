@@ -1,6 +1,6 @@
 [package]
 name = "wictk"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
 
@@ -9,9 +9,9 @@ homepage = "https://github.com/Frixxie/wictk"
 [dependencies]
 anyhow = "1.0.80"
 axum = { version = "0.7.4", features = ["json"] }
-chrono = { version = "0.4.34", features = ["serde"] }
-log = "0.4.20"
-reqwest = { version = "0.11.24", features = ["json"] }
+chrono = { version = "0.4.35", features = ["serde"] }
+log = "0.4.21"
+reqwest = { version = "0.11.25", features = ["json"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 simple_logger = "4.3.3"
