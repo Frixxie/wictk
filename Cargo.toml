@@ -1,6 +1,6 @@
 [package]
 name = "wictk"
-version = "0.1.12"
+version = "0.1.14"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
 
