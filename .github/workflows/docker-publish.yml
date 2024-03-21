@@ -1,0 +1,26 @@
+name: Make
+
+on:
+  schedule:
+    - cron: '23 12 * * *'
+  push:
+    branches: [ "master" ]
+    # Publish semver tags as releases.
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  OPENWEATHERMAPAPIKEY: ${{ secrets.OPENWEATHERMAPAPIKEY }}
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Publish container 
+        run: make publish_container

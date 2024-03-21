@@ -1,0 +1,24 @@
+name: Make-tagged
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  DOCKERTAG: ${{github.ref_name}}
+  OPENWEATHERMAPAPIKEY: ${{ secrets.OPENWEATHERMAPAPIKEY }}
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Publish container 
+        run: make publish_tagged_container
