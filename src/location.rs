@@ -23,13 +23,16 @@ impl OpenWeatherMapLocation {
             .send()
             .await
         {
-            Ok(result) => match result.json::<Vec<OpenWeatherMapLocation>>().await {
-                Ok(res) => Some(res),
-                Err(err) => {
-                    log::error!("Error: {}", err);
-                    None
+            Ok(result) => {
+                log::info!("Statuscode from openweathermap: {}", result.status());
+                match result.json::<Vec<OpenWeatherMapLocation>>().await {
+                    Ok(res) => Some(res),
+                    Err(err) => {
+                        log::error!("Error: {}", err);
+                        None
+                    }
                 }
-            },
+            }
             Err(err) => {
                 log::error!("Error: {}", err);
                 None

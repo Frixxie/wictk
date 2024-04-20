@@ -1,6 +1,6 @@
 use crate::{
     alerts::{Alert, AlertFetcher, MetAlert},
-    location::{City, Coordinates, LocationQuery, OpenWeatherMapLocation},
+    location::{City, LocationQuery, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     utils::InternalApplicationError,
 };
@@ -32,9 +32,16 @@ pub async fn geocoding(
 
 pub async fn alerts(
     State(client): State<Client>,
+    Query(query): Query<City>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
     log::info!("GET /api/alerts");
-    let alerts = MetAlert::fetch(client.clone(), Coordinates::new(59.91273, 10.74609))
+    let res = OpenWeatherMapLocation::fetch(client.clone(), query.location)
+        .await
+        .ok_or_else(|| {
+            log::error!("Failed to get geocoding data from OpenWeatherMap");
+            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+        })?;
+    let alerts = MetAlert::fetch(client.clone(), res.first().unwrap().clone().location)
         .await
         .map_err(|err| {
             log::error!("Error {}", err);
@@ -111,7 +118,7 @@ pub async fn nowcasts(
 
 #[cfg(test)]
 mod tests {
-    use axum::extract::Query;
+    use axum::extract::{Query, State};
     use axum::http::Uri;
     use pretty_assertions::assert_eq;
 
@@ -154,8 +161,8 @@ mod tests {
     async fn get_geocoding() {
         let client = reqwest::Client::new();
         let res = super::geocoding(
-            axum::extract::State(client.clone()),
-            axum::extract::Query(super::City {
+            State(client.clone()),
+            Query(super::City {
                 location: "Oslo".to_string(),
             }),
         )
@@ -175,7 +182,13 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let res = super::alerts(axum::extract::State(client)).await;
+        let res = super::alerts(
+            State(client.clone()),
+            Query(super::City {
+                location: "Oslo".to_string(),
+            }),
+        )
+        .await;
         assert!(res.is_ok());
     }
 
@@ -191,8 +204,8 @@ mod tests {
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let res = super::nowcasts(
-            axum::extract::State(client.clone()),
-            axum::extract::Query(super::LocationQuery::Coordinates(CoordinatesAsString {
+            State(client.clone()),
+            Query(super::LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string(),
             })),
