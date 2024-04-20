@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ./docker-compose.yaml convert -o release
+    kompose.version: 1.32.0 (HEAD)
+  labels:
+    io.kompose.service: wictk
+  name: wictk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: wictk
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ./docker-compose.yaml convert -o release
+        kompose.version: 1.32.0 (HEAD)
+      labels:
+        io.kompose.network/wictk-default: "true"
+        io.kompose.service: wictk
+    spec:
+      containers:
+          image: ghcr.io/frixxie/wictk:0.1.15 # {"$imagepolicy": "flux-system:wictk-policy"}
+          name: wictk
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+      restartPolicy: Always

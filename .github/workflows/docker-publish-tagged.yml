@@ -7,11 +7,9 @@ on:
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   DOCKERTAG: ${{github.ref_name}}
-  OPENWEATHERMAPAPIKEY: ${{ secrets.OPENWEATHERMAPAPIKEY }}
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,6 +17,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Publish container 
-        run: make publish_tagged_container
+        uses: actions/checkout@v4
+      - name: make build
+        run: make build
+      - name: make test
+        run: make test
+      - name: make container_tagged
+        run: make container_tagged
