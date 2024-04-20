@@ -2,7 +2,7 @@ name: Make-tagged
 
 on:
   push:
-    tags: [ 'v*.*.*' ]
+    tags: [ '*.*.*' ]
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
