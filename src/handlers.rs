@@ -58,7 +58,7 @@ pub enum NowcastProvider {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NowcastQuery {
+pub struct ProviderQuery {
     provider: Option<NowcastProvider>,
 }
 
@@ -71,14 +71,17 @@ where
 {
     T::fetch(client, location).await.map_err(|err| {
         error!("Error {}", err);
-        InternalApplicationError::new("Failed to get Met.no nowcast")
+        InternalApplicationError::new("Failed to get nowcast")
     })
 }
 
-async fn find_location(location: LocationQuery, client: &Client) -> anyhow::Result<Coordinates> {
-    match location {
-        LocationQuery::Location(city) => {
-            let res = OpenWeatherMapLocation::fetch(&client, &city.location).await;
+async fn find_location(
+    location_query: LocationQuery,
+    client: &Client,
+) -> anyhow::Result<Coordinates> {
+    match location_query {
+        LocationQuery::Location(location) => {
+            let res = OpenWeatherMapLocation::fetch(&client, &location.location).await;
             let location = res.ok_or_else(|| {
                 InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
             })?;
@@ -93,16 +96,18 @@ async fn find_location(location: LocationQuery, client: &Client) -> anyhow::Resu
 
 pub async fn nowcasts(
     State(client): State<Client>,
-    Query(query): Query<NowcastQuery>,
-    Query(location): Query<LocationQuery>,
+    Query(provider_query): Query<ProviderQuery>,
+    Query(location_query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
     log::info!("GET /api/nowcasts");
-    let location = find_location(location, &client).await.map_err(|err| {
-        error!("Error {}", err);
-        InternalApplicationError::new("Failed to get location data")
-    })?;
+    let location = find_location(location_query, &client)
+        .await
+        .map_err(|err| {
+            error!("Error {}", err);
+            InternalApplicationError::new("Failed to get location data")
+        })?;
 
-    let casts = match query.provider {
+    let casts = match provider_query.provider {
         Some(provider) => match provider {
             NowcastProvider::Met => {
                 vec![fetch_from_provider::<MetNowcast>(&client, &location).await]
@@ -211,7 +216,7 @@ mod tests {
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let res = super::nowcasts(
             State(client.clone()),
-            Query(super::NowcastQuery { provider: None }),
+            Query(super::ProviderQuery { provider: None }),
             Query(super::LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string(),
