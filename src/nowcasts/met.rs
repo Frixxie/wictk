@@ -97,7 +97,7 @@ impl From<MetNowcast> for Nowcast {
 }
 
 impl NowcastFetcher for MetNowcast {
-    async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError> {
+    async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError> {
         let met_cast: MetNowcast = client
             .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
             .query(&[("lat", location.lat), ("lon", location.lon)])
@@ -158,7 +158,7 @@ mod tests {
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let location = Coordinates::new(63.4308, 10.4034);
-        let nowcast = MetNowcast::fetch(client, location).await;
+        let nowcast = MetNowcast::fetch(&client, &location).await;
         assert!(nowcast.is_ok())
     }
 }

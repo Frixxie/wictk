@@ -15,7 +15,7 @@ pub struct OpenWeatherMapLocation {
 }
 
 impl OpenWeatherMapLocation {
-    pub async fn fetch(client: Client, location: String) -> Option<Vec<Self>> {
+    pub async fn fetch(client: &Client, location: &str) -> Option<Vec<Self>> {
         match client
             .get("https://api.openweathermap.org/geo/1.0/direct")
             .query(&[("q", location)])
@@ -185,7 +185,7 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_location() {
         let client = reqwest::Client::new();
-        let res = OpenWeatherMapLocation::fetch(client, "Oslo".to_string()).await;
+        let res = OpenWeatherMapLocation::fetch(&client, &"Oslo".to_string()).await;
         assert!(res.is_some());
         assert_eq!(res.unwrap().len(), 1);
     }

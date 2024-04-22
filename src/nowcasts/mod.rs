@@ -18,7 +18,7 @@ pub enum Nowcast {
 }
 
 pub trait NowcastFetcher {
-    async fn fetch(client: Client, location: Coordinates) -> Result<Nowcast, NowcastError>;
+    async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

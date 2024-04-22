@@ -1,6 +1,6 @@
 use crate::{
     alerts::{Alert, AlertFetcher, MetAlert},
-    location::{City, LocationQuery, OpenWeatherMapLocation},
+    location::{City, Coordinates, LocationQuery, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     utils::InternalApplicationError,
 };
@@ -10,6 +10,7 @@ use axum::{
 };
 use log::error;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 pub async fn ping() -> &'static str {
     log::info!("GET /status/ping");
@@ -21,7 +22,7 @@ pub async fn geocoding(
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
     log::info!("GET /api/geocoding");
-    let res = OpenWeatherMapLocation::fetch(client, query.location)
+    let res = OpenWeatherMapLocation::fetch(&client, &query.location)
         .await
         .ok_or_else(|| {
             log::error!("Failed to get geocoding data from OpenWeatherMap");
@@ -35,7 +36,7 @@ pub async fn alerts(
     Query(query): Query<City>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
     log::info!("GET /api/alerts");
-    let res = OpenWeatherMapLocation::fetch(client.clone(), query.location)
+    let res = OpenWeatherMapLocation::fetch(&client, &query.location)
         .await
         .ok_or_else(|| {
             log::error!("Failed to get geocoding data from OpenWeatherMap");
@@ -50,68 +51,73 @@ pub async fn alerts(
     Ok(Json(alerts))
 }
 
+#[derive(Serialize, Deserialize)]
+pub enum NowcastProvider {
+    Met,
+    OpenWeatherMap,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NowcastQuery {
+    provider: Option<NowcastProvider>,
+}
+
+async fn fetch_from_provider<T>(
+    client: &Client,
+    location: &Coordinates,
+) -> Result<Nowcast, InternalApplicationError>
+where
+    T: NowcastFetcher,
+{
+    T::fetch(client, location).await.map_err(|err| {
+        error!("Error {}", err);
+        InternalApplicationError::new("Failed to get Met.no nowcast")
+    })
+}
+
+async fn find_location(location: LocationQuery, client: &Client) -> anyhow::Result<Coordinates> {
+    match location {
+        LocationQuery::Location(city) => {
+            let res = OpenWeatherMapLocation::fetch(&client, &city.location).await;
+            let location = res.ok_or_else(|| {
+                InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+            })?;
+            Ok(location.first().unwrap().location.clone())
+        }
+        LocationQuery::Coordinates(cords_as_string) => {
+            let cords = cords_as_string.try_into()?;
+            Ok(cords)
+        }
+    }
+}
+
 pub async fn nowcasts(
     State(client): State<Client>,
-    Query(query): Query<LocationQuery>,
+    Query(query): Query<NowcastQuery>,
+    Query(location): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
     log::info!("GET /api/nowcasts");
-    let location = match query {
-        LocationQuery::Location(loc_query) => {
-            let res = OpenWeatherMapLocation::fetch(client.clone(), loc_query.location)
-                .await
-                .ok_or_else(|| {
-                    InternalApplicationError::new(
-                        "Failed to get geocoding data from OpenWeatherMap",
-                    )
-                })?;
-            res.first()
-                .ok_or_else(|| {
-                    InternalApplicationError::new(
-                        "Failed to get geocoding data from OpenWeatherMap",
-                    )
-                })?
-                .location
-                .clone()
-        }
-        LocationQuery::Coordinates(location) => location.try_into().map_err(|_| {
-            InternalApplicationError::new("Failed to convert value to location type")
-        })?,
+    let location = find_location(location, &client).await.map_err(|err| {
+        error!("Error {}", err);
+        InternalApplicationError::new("Failed to get location data")
+    })?;
+
+    let casts = match query.provider {
+        Some(provider) => match provider {
+            NowcastProvider::Met => {
+                vec![fetch_from_provider::<MetNowcast>(&client, &location).await]
+            }
+            NowcastProvider::OpenWeatherMap => {
+                vec![fetch_from_provider::<OpenWeatherNowcast>(&client, &location).await]
+            }
+        },
+        None => vec![
+            fetch_from_provider::<MetNowcast>(&client, &location).await,
+            fetch_from_provider::<OpenWeatherNowcast>(&client, &location).await,
+        ],
     };
 
-    let met_cast_handle = tokio::spawn(MetNowcast::fetch(client.clone(), location.clone()));
-    let openweathermap_cast_handle =
-        tokio::spawn(OpenWeatherNowcast::fetch(client.clone(), location.clone()));
-
-    let met_cast = met_cast_handle
-        .await
-        .map_err(|err| {
-            error!("Error {}", err);
-            InternalApplicationError::new("Failed to get Met.no nowcast")
-        })
-        .and_then(|res| {
-            res.map_err(|err| {
-                log::error!("Error {}", err);
-                InternalApplicationError::new("Failed to get Met.no nowcast")
-            })
-        });
-
-    let openweathermap = openweathermap_cast_handle
-        .await
-        .map_err(|err| {
-            error!("Error {}", err);
-            InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
-        })
-        .and_then(|res| {
-            res.map_err(|err| {
-                log::error!("Error {}", err);
-                InternalApplicationError::new("Failed to get OpenWeatherMap nowcast")
-            })
-        });
-
-    let nowcasts: Vec<Nowcast> = vec![met_cast, openweathermap]
-        .into_iter()
-        .filter_map(|res| res.ok())
-        .collect();
+    let nowcasts: Vec<Nowcast> = casts.into_iter().filter_map(|res| res.ok()).collect();
 
     Ok(Json(nowcasts))
 }
@@ -205,6 +211,7 @@ mod tests {
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
         let res = super::nowcasts(
             State(client.clone()),
+            Query(super::NowcastQuery { provider: None }),
             Query(super::LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string(),
