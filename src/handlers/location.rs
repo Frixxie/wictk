@@ -1,8 +1,14 @@
 use std::collections::HashMap;
 
+use axum::{
+    extract::{Query, State},
+    Json,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use super::error::InternalApplicationError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpenWeatherMapLocation {
@@ -120,6 +126,39 @@ impl TryFrom<Value> for City {
 pub enum LocationQuery {
     Location(City),
     Coordinates(CoordinatesAsString),
+}
+
+pub async fn find_location(
+    location_query: LocationQuery,
+    client: &Client,
+) -> anyhow::Result<Coordinates> {
+    match location_query {
+        LocationQuery::Location(location) => {
+            let res = OpenWeatherMapLocation::fetch(&client, &location.location).await;
+            let location = res.ok_or_else(|| {
+                InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+            })?;
+            Ok(location.first().unwrap().location.clone())
+        }
+        LocationQuery::Coordinates(cords_as_string) => {
+            let cords = cords_as_string.try_into()?;
+            Ok(cords)
+        }
+    }
+}
+
+pub async fn geocoding(
+    State(client): State<Client>,
+    Query(query): Query<City>,
+) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
+    log::info!("GET /api/geocoding");
+    let res = OpenWeatherMapLocation::fetch(&client, &query.location)
+        .await
+        .ok_or_else(|| {
+            log::error!("Failed to get geocoding data from OpenWeatherMap");
+            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+        })?;
+    Ok(Json(res))
 }
 
 #[cfg(test)]

@@ -5,7 +5,8 @@ pub use met::MetAlert;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::location::Coordinates;
+use crate::handlers::location::Coordinates;
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Alert {

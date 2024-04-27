@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::location::Coordinates;
+use crate::handlers::location::Coordinates;
 
 use super::{Nowcast, NowcastError, NowcastFetcher};
 

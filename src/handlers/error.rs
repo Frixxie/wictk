@@ -4,8 +4,8 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use axum::response::{IntoResponse, Response};
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 
 #[derive(Debug)]
 pub struct InternalApplicationError {
@@ -32,7 +32,6 @@ impl InternalApplicationError {
     }
 }
 
-// Tell axum how to convert `AppError` into a response.
 impl IntoResponse for InternalApplicationError {
     fn into_response(self) -> Response {
         (
