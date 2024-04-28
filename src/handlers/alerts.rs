@@ -6,10 +6,10 @@ use reqwest::Client;
 
 use crate::{
     alerts::{Alert, AlertFetcher, MetAlert},
-    handlers::location::OpenWeatherMapLocation,
+    locations::{City, OpenWeatherMapLocation},
 };
 
-use super::{error::InternalApplicationError, location::City};
+use super::error::InternalApplicationError;
 
 pub async fn alerts(
     State(client): State<Client>,

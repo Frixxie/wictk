@@ -7,14 +7,37 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    handlers::location::find_location,
+    locations::{City, Coordinates, CoordinatesAsString, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
 };
 
-use super::{
-    error::InternalApplicationError,
-    location::{Coordinates, LocationQuery},
-};
+use super::error::InternalApplicationError;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum LocationQuery {
+    Location(City),
+    Coordinates(CoordinatesAsString),
+}
+
+pub async fn find_location(
+    location_query: LocationQuery,
+    client: &Client,
+) -> anyhow::Result<Coordinates> {
+    match location_query {
+        LocationQuery::Location(location) => {
+            let res = OpenWeatherMapLocation::fetch(&client, &location.location).await;
+            let location = res.ok_or_else(|| {
+                InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+            })?;
+            Ok(location.first().unwrap().location.clone())
+        }
+        LocationQuery::Coordinates(cords_as_string) => {
+            let cords = cords_as_string.try_into()?;
+            Ok(cords)
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum NowcastProvider {

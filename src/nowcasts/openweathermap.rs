@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::handlers::location::Coordinates;
+use crate::locations::Coordinates;
 
 use super::{Nowcast, NowcastError, NowcastFetcher};
 
@@ -142,7 +142,7 @@ impl NowcastFetcher for OpenWeatherNowcast {
 #[cfg(test)]
 mod tests {
     use crate::{
-        handlers::location::Coordinates,
+        locations::Coordinates,
         nowcasts::{NowcastFetcher, OpenWeatherNowcast},
     };
 

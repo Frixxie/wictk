@@ -9,7 +9,7 @@ use std::error::Error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::handlers::location::Coordinates;
+use crate::locations::Coordinates;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Nowcast {

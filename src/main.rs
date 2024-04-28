@@ -1,6 +1,7 @@
 mod alerts;
 mod handlers;
 mod nowcasts;
+mod locations;
 
 use axum::serve;
 use simple_logger::SimpleLogger;

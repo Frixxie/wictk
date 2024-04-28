@@ -10,7 +10,7 @@ use self::{
 
 mod alerts;
 mod error;
-pub(crate) mod location;
+mod location;
 mod nowcasts;
 mod status;
 
@@ -36,9 +36,9 @@ mod tests {
         http::Uri,
     };
 
-    use crate::handlers::{
-        location::{City, CoordinatesAsString, LocationQuery},
-        nowcasts::ProviderQuery,
+    use crate::{
+        handlers::nowcasts::{LocationQuery, ProviderQuery},
+        locations::{City, CoordinatesAsString},
     };
 
     #[test]
@@ -130,5 +130,30 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_locationtype_city() {
+        let json = r#"{"location": "Oslo"}"#;
+        let location: LocationQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            location,
+            LocationQuery::Location(City {
+                location: "Oslo".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_locationtype_coordinates_strings() {
+        let json = r#"{"lat": "1.0", "lon": "2.0"}"#;
+        let location: LocationQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            location,
+            LocationQuery::Coordinates(CoordinatesAsString {
+                lat: "1.0".to_string(),
+                lon: "2.0".to_string()
+            })
+        );
     }
 }
