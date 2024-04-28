@@ -48,7 +48,7 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_location() {
         let client = reqwest::Client::new();
-        let res = OpenWeatherMapLocation::fetch(&client, &"Oslo".to_string()).await;
+        let res = OpenWeatherMapLocation::fetch(&client, "Oslo").await;
         assert!(res.is_some());
         assert_eq!(res.unwrap().len(), 1);
     }

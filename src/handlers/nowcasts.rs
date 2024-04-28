@@ -26,7 +26,7 @@ pub async fn find_location(
 ) -> anyhow::Result<Coordinates> {
     match location_query {
         LocationQuery::Location(location) => {
-            let res = OpenWeatherMapLocation::fetch(&client, &location.location).await;
+            let res = OpenWeatherMapLocation::fetch(client, &location.location).await;
             let location = res.ok_or_else(|| {
                 InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
             })?;

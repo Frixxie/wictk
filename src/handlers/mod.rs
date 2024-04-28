@@ -25,8 +25,8 @@ pub fn setup_router(client: Client) -> Router {
         .route("/ping", get(ping))
         .route("/health", get(health));
 
-    let app = Router::new().nest("/status", status).nest("/api", api);
-    app
+    
+    Router::new().nest("/status", status).nest("/api", api)
 }
 
 #[cfg(test)]
