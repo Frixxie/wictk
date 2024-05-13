@@ -1,4 +1,4 @@
-# wictk Weather is cool to know!
+# wictk (Weather is cool to know)
 
 Wictk is a api wrapper around [Meterologisk instiutt](https://api.met.no) and [Openweathermap](https://openweathermap.com).
 The main features is providing nowcasts and weather related alerts in norway
