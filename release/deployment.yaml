@@ -22,7 +22,7 @@ spec:
         io.kompose.service: wictk
     spec:
       containers:
-        - image: ghcr.io/frixxie/wictk:0.2.3 # {"$imagepolicy": "flux-system:wictk-policy"}
+        - image: ghcr.io/frixxie/wictk:0.2.4 # {"$imagepolicy": "flux-system:wictk-policy"}
           name: wictk
           ports:
             - containerPort: 3000
