@@ -1,15 +1,19 @@
+use std::time::Duration;
+
 use crate::{
     alerts::{Alert, AlertFetcher, MetAlert},
+    cache::TimedCache,
     location::{City, Coordinates, LocationQuery, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     utils::InternalApplicationError,
+    AppState,
 };
 use axum::{
     extract::{Query, State},
     Json,
 };
 use log::error;
-use reqwest::Client;
+use tokio::time::Instant;
 
 pub async fn ping() -> &'static str {
     log::info!("GET /status/ping");
@@ -17,11 +21,11 @@ pub async fn ping() -> &'static str {
 }
 
 pub async fn geocoding(
-    State(client): State<Client>,
+    State(app_state): State<AppState>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
     log::info!("GET /api/geocoding");
-    let res = OpenWeatherMapLocation::fetch(client, query.location)
+    let res = OpenWeatherMapLocation::fetch(app_state.client, query.location)
         .await
         .ok_or_else(|| {
             log::error!("Failed to get geocoding data from OpenWeatherMap");
@@ -30,27 +34,46 @@ pub async fn geocoding(
     Ok(Json(res))
 }
 
+pub type Alerts = Vec<Alert>;
+
 pub async fn alerts(
-    State(client): State<Client>,
-) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
+    State(app_state): State<AppState>,
+) -> Result<Json<Alerts>, InternalApplicationError> {
     log::info!("GET /api/alerts");
-    let alerts = MetAlert::fetch(client.clone(), Coordinates::new(59.91273, 10.74609))
-        .await
-        .map_err(|err| {
-            log::error!("Error {}", err);
-            InternalApplicationError::new("Failed to get Met.no alerts")
-        })?;
-    Ok(Json(alerts))
+    let alerts = app_state.cache.get("alert".to_string()).await;
+    match alerts {
+        Some(alerts) => Ok(Json(alerts)),
+        None => {
+            let alerts = MetAlert::fetch(
+                app_state.client.clone(),
+                Coordinates::new(59.91273, 10.74609),
+            )
+            .await
+            .map_err(|err| {
+                log::error!("Error {}", err);
+                InternalApplicationError::new("Failed to get Met.no alerts")
+            })?;
+            app_state
+                .cache
+                .set(
+                    "alert".to_string(),
+                    alerts.clone(),
+                    Instant::now() + Duration::from_secs(300),
+                )
+                .await;
+            Ok(Json(alerts))
+        }
+    }
 }
 
 pub async fn nowcasts(
-    State(client): State<Client>,
+    State(app_state): State<AppState>,
     Query(query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
     log::info!("GET /api/nowcasts");
     let location = match query {
         LocationQuery::Location(loc_query) => {
-            let res = OpenWeatherMapLocation::fetch(client.clone(), loc_query.location)
+            let res = OpenWeatherMapLocation::fetch(app_state.client.clone(), loc_query.location)
                 .await
                 .ok_or_else(|| {
                     InternalApplicationError::new(
@@ -71,9 +94,14 @@ pub async fn nowcasts(
         })?,
     };
 
-    let met_cast_handle = tokio::spawn(MetNowcast::fetch(client.clone(), location.clone()));
-    let openweathermap_cast_handle =
-        tokio::spawn(OpenWeatherNowcast::fetch(client.clone(), location.clone()));
+    let met_cast_handle = tokio::spawn(MetNowcast::fetch(
+        app_state.client.clone(),
+        location.clone(),
+    ));
+    let openweathermap_cast_handle = tokio::spawn(OpenWeatherNowcast::fetch(
+        app_state.client.clone(),
+        location.clone(),
+    ));
 
     let met_cast = met_cast_handle
         .await
@@ -115,7 +143,11 @@ mod tests {
     use axum::http::Uri;
     use pretty_assertions::assert_eq;
 
-    use crate::location::{City, CoordinatesAsString, LocationQuery};
+    use crate::{
+        cache,
+        location::{City, CoordinatesAsString, LocationQuery},
+        AppState,
+    };
 
     #[test]
     fn parse_location() {
@@ -153,8 +185,10 @@ mod tests {
     #[tokio::test]
     async fn get_geocoding() {
         let client = reqwest::Client::new();
+        let cache = cache::Cache::new();
+        let appstate = AppState::new(client, cache);
         let res = super::geocoding(
-            axum::extract::State(client.clone()),
+            axum::extract::State(appstate),
             axum::extract::Query(super::City {
                 location: "Oslo".to_string(),
             }),
@@ -175,7 +209,9 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let res = super::alerts(axum::extract::State(client)).await;
+        let cache = cache::Cache::new();
+        let appstate = AppState::new(client, cache);
+        let res = super::alerts(axum::extract::State(appstate)).await;
         assert!(res.is_ok());
     }
 
@@ -190,8 +226,10 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+        let cache = cache::Cache::new();
+        let appstate = AppState::new(client, cache);
         let res = super::nowcasts(
-            axum::extract::State(client.clone()),
+            axum::extract::State(appstate),
             axum::extract::Query(super::LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),
                 lon: "10.74609".to_string(),
