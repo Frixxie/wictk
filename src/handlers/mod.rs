@@ -1,5 +1,5 @@
+use crate::AppState;
 use axum::{routing::get, Router};
-use reqwest::Client;
 
 use self::{
     alerts::alerts,
@@ -14,18 +14,19 @@ mod location;
 mod nowcasts;
 mod status;
 
-pub fn setup_router(client: Client) -> Router {
+pub use alerts::Alerts;
+
+pub fn setup_router(app_state: AppState) -> Router {
     let api = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
-        .with_state(client);
+        .with_state(app_state);
 
     let status = Router::new()
         .route("/ping", get(ping))
         .route("/health", get(health));
 
-    
     Router::new().nest("/status", status).nest("/api", api)
 }
 
@@ -37,8 +38,10 @@ mod tests {
     };
 
     use crate::{
+        cache,
         handlers::nowcasts::{LocationQuery, ProviderQuery},
         locations::{City, CoordinatesAsString},
+        AppState,
     };
 
     #[test]
@@ -77,8 +80,10 @@ mod tests {
     #[tokio::test]
     async fn get_geocoding() {
         let client = reqwest::Client::new();
+        let cache = cache::Cache::new();
+        let app_state = AppState::new(client, cache);
         let res = super::geocoding(
-            State(client.clone()),
+            State(app_state),
             Query(City {
                 location: "Oslo".to_string(),
             }),
@@ -99,8 +104,11 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+        let cache = cache::Cache::new();
+        let app_state = AppState::new(client, cache);
+
         let res = super::alerts(
-            State(client.clone()),
+            State(app_state),
             Query(City {
                 location: "Oslo".to_string(),
             }),
@@ -120,8 +128,10 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
+        let cache = cache::Cache::new();
+        let app_state = AppState::new(client, cache);
         let res = super::nowcasts(
-            State(client.clone()),
+            State(app_state),
             Query(ProviderQuery { provider: None }),
             Query(LocationQuery::Coordinates(CoordinatesAsString {
                 lat: "59.91273".to_string(),

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     locations::{City, Coordinates, CoordinatesAsString, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
+    AppState,
 };
 
 use super::error::InternalApplicationError;
@@ -64,12 +65,12 @@ where
 }
 
 pub async fn nowcasts(
-    State(client): State<Client>,
+    State(app_state): State<AppState>,
     Query(provider_query): Query<ProviderQuery>,
     Query(location_query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
     log::info!("GET /api/nowcasts");
-    let location = find_location(location_query, &client)
+    let location = find_location(location_query, &app_state.client)
         .await
         .map_err(|err| {
             error!("Error {}", err);
@@ -79,15 +80,15 @@ pub async fn nowcasts(
     let casts = match provider_query.provider {
         Some(provider) => match provider {
             NowcastProvider::Met => {
-                vec![fetch_from_provider::<MetNowcast>(&client, &location).await]
+                vec![fetch_from_provider::<MetNowcast>(&app_state.client, &location).await]
             }
             NowcastProvider::OpenWeatherMap => {
-                vec![fetch_from_provider::<OpenWeatherNowcast>(&client, &location).await]
+                vec![fetch_from_provider::<OpenWeatherNowcast>(&app_state.client, &location).await]
             }
         },
         None => vec![
-            fetch_from_provider::<MetNowcast>(&client, &location).await,
-            fetch_from_provider::<OpenWeatherNowcast>(&client, &location).await,
+            fetch_from_provider::<MetNowcast>(&app_state.client, &location).await,
+            fetch_from_provider::<OpenWeatherNowcast>(&app_state.client, &location).await,
         ],
     };
 
