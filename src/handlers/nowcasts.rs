@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     extract::{Query, State},
     Json,
@@ -5,8 +7,10 @@ use axum::{
 use log::error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::time::Instant;
 
 use crate::{
+    cache::{Cache, TimedCache},
     locations::{City, Coordinates, CoordinatesAsString, OpenWeatherMapLocation},
     nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
     AppState,
@@ -24,14 +28,35 @@ pub enum LocationQuery {
 pub async fn find_location(
     location_query: LocationQuery,
     client: &Client,
+    location_cache: &Cache<String, OpenWeatherMapLocation>,
 ) -> anyhow::Result<Coordinates> {
     match location_query {
         LocationQuery::Location(location) => {
-            let res = OpenWeatherMapLocation::fetch(client, &location.location).await;
-            let location = res.ok_or_else(|| {
-                InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
-            })?;
-            Ok(location.first().unwrap().location.clone())
+            let location = match location_cache.get(location.location.clone()).await {
+                Some(location) => location,
+                None => {
+                    let res = OpenWeatherMapLocation::fetch(&client, &location.location)
+                        .await
+                        .ok_or_else(|| {
+                            log::error!("Failed to get geocoding data from OpenWeatherMap");
+                            InternalApplicationError::new(
+                                "Failed to get geocoding data from OpenWeatherMap",
+                            )
+                        })?
+                        .first()
+                        .ok_or(InternalApplicationError::new("No location found"))?
+                        .clone();
+                    location_cache
+                        .set(
+                            location.location.clone(),
+                            res.clone(),
+                            Instant::now() + Duration::from_secs(300),
+                        )
+                        .await;
+                    res
+                }
+            };
+            Ok(location.location)
         }
         LocationQuery::Coordinates(cords_as_string) => {
             let cords = cords_as_string.try_into()?;
@@ -54,14 +79,29 @@ pub struct ProviderQuery {
 async fn fetch_from_provider<T>(
     client: &Client,
     location: &Coordinates,
+    nowcast_cache: &Cache<String, Nowcast>,
 ) -> Result<Nowcast, InternalApplicationError>
 where
     T: NowcastFetcher,
 {
-    T::fetch(client, location).await.map_err(|err| {
-        error!("Error {}", err);
-        InternalApplicationError::new("Failed to get nowcast")
-    })
+    let nowcast = nowcast_cache.get(location.to_string()).await;
+    match nowcast {
+        Some(nowcast) => Ok(nowcast),
+        None => {
+            let res = T::fetch(client, location).await.map_err(|err| {
+                error!("Error {}", err);
+                InternalApplicationError::new("Failed to get nowcast")
+            })?;
+            nowcast_cache
+                .set(
+                    location.to_string(),
+                    res.clone(),
+                    Instant::now() + Duration::from_secs(300),
+                )
+                .await;
+            Ok(res)
+        }
+    }
 }
 
 pub async fn nowcasts(
@@ -69,7 +109,7 @@ pub async fn nowcasts(
     Query(provider_query): Query<ProviderQuery>,
     Query(location_query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
-    let location = find_location(location_query, &app_state.client)
+    let location = find_location(location_query, &app_state.client, &app_state.location_cache)
         .await
         .map_err(|err| {
             error!("Error {}", err);
@@ -79,15 +119,39 @@ pub async fn nowcasts(
     let casts = match provider_query.provider {
         Some(provider) => match provider {
             NowcastProvider::Met => {
-                vec![fetch_from_provider::<MetNowcast>(&app_state.client, &location).await]
+                vec![
+                    fetch_from_provider::<MetNowcast>(
+                        &app_state.client,
+                        &location,
+                        &app_state.nowcast_cache,
+                    )
+                    .await,
+                ]
             }
             NowcastProvider::OpenWeatherMap => {
-                vec![fetch_from_provider::<OpenWeatherNowcast>(&app_state.client, &location).await]
+                vec![
+                    fetch_from_provider::<OpenWeatherNowcast>(
+                        &app_state.client,
+                        &location,
+                        &app_state.nowcast_cache,
+                    )
+                    .await,
+                ]
             }
         },
         None => vec![
-            fetch_from_provider::<MetNowcast>(&app_state.client, &location).await,
-            fetch_from_provider::<OpenWeatherNowcast>(&app_state.client, &location).await,
+            fetch_from_provider::<MetNowcast>(
+                &app_state.client,
+                &location,
+                &app_state.nowcast_cache,
+            )
+            .await,
+            fetch_from_provider::<OpenWeatherNowcast>(
+                &app_state.client,
+                &location,
+                &app_state.nowcast_cache,
+            )
+            .await,
         ],
     };
 

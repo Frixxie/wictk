@@ -6,6 +6,8 @@ mod nowcasts;
 
 use axum::serve;
 use handlers::Alerts;
+use locations::OpenWeatherMapLocation;
+use nowcasts::Nowcast;
 use simple_logger::SimpleLogger;
 use tokio::net::TcpListener;
 
@@ -15,14 +17,18 @@ use crate::handlers::setup_router;
 #[derive(Clone)]
 pub struct AppState {
     pub client: reqwest::Client,
-    pub cache: Cache<String, Alerts>,
+    pub alert_cache: Cache<String, Alerts>,
+    pub location_cache: Cache<String, OpenWeatherMapLocation>,
+    pub nowcast_cache: Cache<String, Nowcast>,
 }
 
 impl AppState {
-    pub fn new(client: reqwest::Client, alert_cache: Cache<String, Alerts>) -> Self {
+    pub fn new(client: reqwest::Client) -> Self {
         Self {
             client,
-            cache: alert_cache,
+            alert_cache: Cache::new(),
+            location_cache: Cache::new(),
+            nowcast_cache: Cache::new(),
         }
     }
 }
@@ -42,9 +48,8 @@ async fn main() -> Result<(), anyhow::Error> {
         env!("CARGO_PKG_HOMEPAGE"),
     );
     let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-    let alert_cache: Cache<String, Alerts> = Cache::new();
 
-    let app_state = AppState::new(client, alert_cache);
+    let app_state = AppState::new(client);
 
     let app = setup_router(app_state);
 

@@ -20,29 +20,45 @@ pub async fn alerts(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
-    let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
-        .await
-        .ok_or_else(|| {
-            log::error!("Failed to get geocoding data from OpenWeatherMap");
-            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
-        })?;
-    let alerts = app_state.cache.get("alert".to_string()).await;
+    let location = match app_state.location_cache.get(query.location.clone()).await {
+        Some(location) => location,
+        None => {
+            let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
+                .await
+                .ok_or_else(|| {
+                    log::error!("Failed to get geocoding data from OpenWeatherMap");
+                    InternalApplicationError::new(
+                        "Failed to get geocoding data from OpenWeatherMap",
+                    )
+                })?
+                .first()
+                .ok_or(InternalApplicationError::new("No location found"))?
+                .clone();
+            app_state
+                .location_cache
+                .set(
+                    query.location.clone(),
+                    res.clone(),
+                    Instant::now() + Duration::from_secs(300),
+                )
+                .await;
+            res
+        }
+    };
+    let alerts = app_state.alert_cache.get(location.name.clone()).await;
     match alerts {
         Some(alerts) => Ok(Json(alerts)),
         None => {
-            let alerts = MetAlert::fetch(
-                app_state.client.clone(),
-                res.first().unwrap().clone().location,
-            )
-            .await
-            .map_err(|err| {
-                log::error!("Error {}", err);
-                InternalApplicationError::new("Failed to get Met.no alerts")
-            })?;
+            let alerts = MetAlert::fetch(app_state.client.clone(), location.location)
+                .await
+                .map_err(|err| {
+                    log::error!("Error {}", err);
+                    InternalApplicationError::new("Failed to get Met.no alerts")
+                })?;
             app_state
-                .cache
+                .alert_cache
                 .set(
-                    "alert".to_string(),
+                    location.name.to_string(),
                     alerts.clone(),
                     Instant::now() + Duration::from_secs(300),
                 )

@@ -68,7 +68,6 @@ mod tests {
     };
 
     use crate::{
-        cache,
         handlers::nowcasts::{LocationQuery, ProviderQuery},
         locations::{City, CoordinatesAsString},
         AppState,
@@ -110,8 +109,7 @@ mod tests {
     #[tokio::test]
     async fn get_geocoding() {
         let client = reqwest::Client::new();
-        let cache = cache::Cache::new();
-        let app_state = AppState::new(client, cache);
+        let app_state = AppState::new(client);
         let res = super::geocoding(
             State(app_state),
             Query(City {
@@ -134,8 +132,7 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let cache = cache::Cache::new();
-        let app_state = AppState::new(client, cache);
+        let app_state = AppState::new(client);
 
         let res = super::alerts(
             State(app_state),
@@ -158,8 +155,7 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let cache = cache::Cache::new();
-        let app_state = AppState::new(client, cache);
+        let app_state = AppState::new(client);
         let res = super::nowcasts(
             State(app_state),
             Query(ProviderQuery { provider: None }),

@@ -9,6 +9,12 @@ pub struct Coordinates {
     pub lon: f32,
 }
 
+impl ToString for Coordinates {
+    fn to_string(&self) -> String {
+        format!("{},{}", self.lat, self.lon)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CoordinatesAsString {
     pub lat: String,
