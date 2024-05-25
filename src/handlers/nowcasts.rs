@@ -69,7 +69,6 @@ pub async fn nowcasts(
     Query(provider_query): Query<ProviderQuery>,
     Query(location_query): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
-    log::info!("GET /api/nowcasts");
     let location = find_location(location_query, &app_state.client)
         .await
         .map_err(|err| {

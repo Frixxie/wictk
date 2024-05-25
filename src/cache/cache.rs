@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use log::info;
 use tokio::{sync::RwLock, time::Instant};
 
 pub trait TimedCache<K, V> {
@@ -41,14 +42,17 @@ where
         };
 
         if Instant::now() > duration {
+            info!("Key has expired removing");
             self.cache.write().await.remove(&key);
             return None;
         }
 
+        info!("Returning value from cache");
         Some(value)
     }
 
     async fn set(&self, key: K, value: V, duration: Instant) {
+        info!("Inserting into cache!");
         self.cache.write().await.insert(key, (duration, value));
     }
 }

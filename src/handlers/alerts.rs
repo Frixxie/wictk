@@ -20,7 +20,6 @@ pub async fn alerts(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
-    log::info!("GET /api/alerts");
     let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
         .await
         .ok_or_else(|| {

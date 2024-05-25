@@ -14,7 +14,6 @@ pub async fn geocoding(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
-    log::info!("GET /api/geocoding");
     let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
         .await
         .ok_or_else(|| {

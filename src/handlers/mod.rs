@@ -1,5 +1,14 @@
 use crate::AppState;
-use axum::{routing::get, Router};
+use axum::{
+    extract::Request,
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+    Router,
+};
+use log::info;
+use tokio::time::Instant;
+use tower::ServiceBuilder;
 
 use self::{
     alerts::alerts,
@@ -16,12 +25,33 @@ mod status;
 
 pub use alerts::Alerts;
 
+pub async fn profile_endpoint(request: Request, next: Next) -> Response {
+    let method = request.method().clone().to_string();
+    let uri = request.uri().clone();
+    info!("Handling {} at {}", method, uri);
+
+    let now = Instant::now();
+
+    let response = next.run(request).await;
+
+    let elapsed = now.elapsed();
+
+    info!(
+        "Finished handling {} at {}, used {} ms",
+        method,
+        uri,
+        elapsed.as_millis()
+    );
+    response
+}
+
 pub fn setup_router(app_state: AppState) -> Router {
     let api = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
-        .with_state(app_state);
+        .with_state(app_state)
+        .layer(ServiceBuilder::new().layer(middleware::from_fn(profile_endpoint)));
 
     let status = Router::new()
         .route("/ping", get(ping))
