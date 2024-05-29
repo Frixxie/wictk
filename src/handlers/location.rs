@@ -80,7 +80,7 @@ pub async fn geocoding(
 #[cfg(test)]
 
 mod tests {
-    use crate::{cache::TimedCache, handlers::alerts::lookup_location};
+    use crate::{cache::TimedCache, handlers::location::lookup_location};
 
     #[tokio::test]
     async fn test_lookup_location() {
