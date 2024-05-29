@@ -16,7 +16,7 @@ use crate::{
     AppState,
 };
 
-use super::error::InternalApplicationError;
+use super::{error::InternalApplicationError, location::lookup_location};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -28,35 +28,15 @@ pub enum LocationQuery {
 pub async fn find_location(
     location_query: LocationQuery,
     client: &Client,
-    location_cache: &Cache<String, OpenWeatherMapLocation>,
+    location_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
 ) -> anyhow::Result<Coordinates> {
     match location_query {
         LocationQuery::Location(location) => {
-            let location = match location_cache.get(location.location.clone()).await {
-                Some(location) => location,
-                None => {
-                    let res = OpenWeatherMapLocation::fetch(&client, &location.location)
-                        .await
-                        .ok_or_else(|| {
-                            log::error!("Failed to get geocoding data from OpenWeatherMap");
-                            InternalApplicationError::new(
-                                "Failed to get geocoding data from OpenWeatherMap",
-                            )
-                        })?
-                        .first()
-                        .ok_or(InternalApplicationError::new("No location found"))?
-                        .clone();
-                    location_cache
-                        .set(
-                            location.location.clone(),
-                            res.clone(),
-                            Instant::now() + Duration::from_secs(300),
-                        )
-                        .await;
-                    res
-                }
-            };
-            Ok(location.location)
+            let location = lookup_location(client, &location.location, location_cache).await;
+            match location {
+                Ok(location) => Ok(location.location),
+                Err(err) => Err(err.into()),
+            }
         }
         LocationQuery::Coordinates(cords_as_string) => {
             let cords = cords_as_string.try_into()?;
