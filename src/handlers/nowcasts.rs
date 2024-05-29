@@ -59,12 +59,15 @@ pub struct ProviderQuery {
 async fn fetch_from_provider<T>(
     client: &Client,
     location: &Coordinates,
+    provider_name: &str,
     nowcast_cache: &Cache<String, Nowcast>,
 ) -> Result<Nowcast, InternalApplicationError>
 where
     T: NowcastFetcher,
 {
-    let nowcast = nowcast_cache.get(location.to_string()).await;
+    let nowcast = nowcast_cache
+        .get(format!("{}-{}", location.to_string(), provider_name))
+        .await;
     match nowcast {
         Some(nowcast) => Ok(nowcast),
         None => {
@@ -103,6 +106,7 @@ pub async fn nowcasts(
                     fetch_from_provider::<MetNowcast>(
                         &app_state.client,
                         &location,
+                        &format!("MET"),
                         &app_state.nowcast_cache,
                     )
                     .await,
@@ -113,6 +117,7 @@ pub async fn nowcasts(
                     fetch_from_provider::<OpenWeatherNowcast>(
                         &app_state.client,
                         &location,
+                        &format!("OWM"),
                         &app_state.nowcast_cache,
                     )
                     .await,
@@ -123,12 +128,14 @@ pub async fn nowcasts(
             fetch_from_provider::<MetNowcast>(
                 &app_state.client,
                 &location,
+                &format!("MET"),
                 &app_state.nowcast_cache,
             )
             .await,
             fetch_from_provider::<OpenWeatherNowcast>(
                 &app_state.client,
                 &location,
+                &format!("OWM"),
                 &app_state.nowcast_cache,
             )
             .await,
