@@ -106,7 +106,7 @@ pub async fn nowcasts(
                     fetch_from_provider::<MetNowcast>(
                         &app_state.client,
                         &location,
-                        &format!("MET"),
+                        "MET",
                         &app_state.nowcast_cache,
                     )
                     .await,
@@ -117,7 +117,7 @@ pub async fn nowcasts(
                     fetch_from_provider::<OpenWeatherNowcast>(
                         &app_state.client,
                         &location,
-                        &format!("OWM"),
+                        "OWM",
                         &app_state.nowcast_cache,
                     )
                     .await,
@@ -128,14 +128,14 @@ pub async fn nowcasts(
             fetch_from_provider::<MetNowcast>(
                 &app_state.client,
                 &location,
-                &format!("MET"),
+                "MET",
                 &app_state.nowcast_cache,
             )
             .await,
             fetch_from_provider::<OpenWeatherNowcast>(
                 &app_state.client,
                 &location,
-                &format!("OWM"),
+                "OWM",
                 &app_state.nowcast_cache,
             )
             .await,

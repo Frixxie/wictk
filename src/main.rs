@@ -49,6 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
     );
     let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
 
+    //TODO: Dette er en fin todo
     let app_state = AppState::new(client);
 
     let app = setup_router(app_state);

@@ -23,11 +23,11 @@ pub async fn lookup_location(
         Some(location) => match location {
             Some(loc) => Ok(loc),
             None => {
-                return Err(InternalApplicationError::new("Location not found"));
+                Err(InternalApplicationError::new("Location not found"))
             }
         },
         None => {
-            let res = match OpenWeatherMapLocation::fetch(&client, &location).await {
+            let res = match OpenWeatherMapLocation::fetch(client, location).await {
                 Some(locs) => {
                     if locs.is_empty() {
                         loc_cache

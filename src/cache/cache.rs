@@ -36,7 +36,7 @@ where
         let (duration, value) = {
             let cache = self.cache.read().await;
             match cache.get(&key) {
-                Some((duration, value)) => (duration.clone(), value.clone()),
+                Some((duration, value)) => (*duration, value.clone()),
                 None => return None,
             }
         };
