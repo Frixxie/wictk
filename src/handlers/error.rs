@@ -7,6 +7,7 @@ use std::{
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
+//TODO: this should be something else than InternalApplicationError
 #[derive(Debug)]
 pub struct InternalApplicationError {
     message: String,
