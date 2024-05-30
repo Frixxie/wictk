@@ -19,6 +19,7 @@ impl Display for InternalApplicationError {
     }
 }
 
+//TODO: add other stuffies here
 impl Error for InternalApplicationError {}
 
 impl InternalApplicationError {
