@@ -29,7 +29,7 @@ impl<K, V> Default for Cache<K, V> {
 
 impl<K, V> TimedCache<K, V> for Cache<K, V>
 where
-    K: std::cmp::Eq + std::hash::Hash,
+    K: std::cmp::Eq + std::hash::Hash + std::fmt::Display,
     V: Clone,
 {
     async fn get(&self, key: K) -> Option<V> {
@@ -42,17 +42,17 @@ where
         };
 
         if Instant::now() > duration {
-            info!("Key has expired removing");
+            info!("Key {key} has expired removing");
             self.cache.write().await.remove(&key);
             return None;
         }
 
-        info!("Returning value from cache");
+        info!("Returning {key}'s value from cache");
         Some(value)
     }
 
     async fn set(&self, key: K, value: V, duration: Instant) {
-        info!("Inserting into cache!");
+        info!("Inserting {} into cache!", key);
         self.cache.write().await.insert(key, (duration, value));
     }
 }
