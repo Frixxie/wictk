@@ -15,6 +15,47 @@ use crate::{
 
 use super::error::ApplicationError;
 
+async fn populate_location_cache(
+    location: &str,
+    locations: Option<Vec<OpenWeatherMapLocation>>,
+    loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
+) -> Option<OpenWeatherMapLocation> {
+    match locations {
+        Some(locs) => match locs.first() {
+            Some(loc) => {
+                loc_cache
+                    .set(
+                        location.to_string(),
+                        Some(loc.clone()),
+                        Instant::now() + Duration::from_secs(300),
+                    )
+                    .await;
+                Some(loc.clone())
+            }
+            None => {
+                loc_cache
+                    .set(
+                        location.to_string(),
+                        None,
+                        Instant::now() + Duration::from_secs(300),
+                    )
+                    .await;
+                None
+            }
+        },
+        None => {
+            loc_cache
+                .set(
+                    location.to_string(),
+                    None,
+                    Instant::now() + Duration::from_secs(300),
+                )
+                .await;
+            None
+        }
+    }
+}
+
 pub async fn lookup_location(
     client: &reqwest::Client,
     location: &str,
@@ -24,50 +65,19 @@ pub async fn lookup_location(
         Some(location) => match location {
             Some(loc) => Ok(loc),
             None => Err(ApplicationError::new(
-                "Location not found",
-                StatusCode::INTERNAL_SERVER_ERROR,
+                "Not found in cache",
+                StatusCode::NOT_FOUND,
             )),
         },
         None => {
-            let res = match OpenWeatherMapLocation::fetch(client, location).await {
-                Some(locs) => {
-                    if locs.is_empty() {
-                        loc_cache
-                            .set(
-                                location.to_string(),
-                                None,
-                                Instant::now() + Duration::from_secs(300),
-                            )
-                            .await;
-                        return Err(ApplicationError::new(
-                            "Location not found",
-                            StatusCode::NOT_FOUND,
-                        ));
-                    }
-                    locs.first().unwrap().clone()
-                }
-                None => {
-                    loc_cache
-                        .set(
-                            location.to_string(),
-                            None,
-                            Instant::now() + Duration::from_secs(300),
-                        )
-                        .await;
-                    return Err(ApplicationError::new(
-                        "Location not found",
-                        StatusCode::NOT_FOUND,
-                    ));
-                }
-            };
-            loc_cache
-                .set(
-                    location.to_string(),
-                    Some(res.clone()),
-                    Instant::now() + Duration::from_secs(300),
-                )
-                .await;
-            Ok(res)
+            let res = OpenWeatherMapLocation::fetch(client, location).await;
+            match populate_location_cache(location, res.clone(), loc_cache).await {
+                Some(loc) => Ok(loc),
+                None => Err(ApplicationError::new(
+                    "Location not found",
+                    StatusCode::NOT_FOUND,
+                )),
+            }
         }
     }
 }
@@ -106,11 +116,12 @@ mod tests {
         let client = reqwest::Client::new();
         let loc_cache = crate::Cache::new();
         let location = lookup_location(&client, "Åkreham", &loc_cache).await;
-        dbg!(&location);
         assert!(location.is_err());
 
         let loc = loc_cache.get("Åkreham".to_string()).await;
-        dbg!(&loc);
         assert!(loc.is_some_and(|loc| loc.is_none()));
+
+        let location = lookup_location(&client, "Åkreham", &loc_cache).await;
+        assert!(location.is_err());
     }
 }
