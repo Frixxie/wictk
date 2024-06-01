@@ -1,4 +1,4 @@
-mod cache;
+mod timed_cache;
 
-pub use self::cache::Cache;
-pub use self::cache::TimedCache;
+pub use self::timed_cache::Cache;
+pub use self::timed_cache::TimedCache;

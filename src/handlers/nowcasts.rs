@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use log::error;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 
@@ -16,7 +16,7 @@ use crate::{
     AppState,
 };
 
-use super::{error::InternalApplicationError, location::lookup_location};
+use super::{error::ApplicationError, location::lookup_location};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -61,7 +61,7 @@ async fn fetch_from_provider<T>(
     location: &Coordinates,
     provider_name: &str,
     nowcast_cache: &Cache<String, Nowcast>,
-) -> Result<Nowcast, InternalApplicationError>
+) -> Result<Nowcast, ApplicationError>
 where
     T: NowcastFetcher,
 {
@@ -73,7 +73,7 @@ where
         None => {
             let res = T::fetch(client, location).await.map_err(|err| {
                 error!("Error {}", err);
-                InternalApplicationError::new("Failed to get nowcast")
+                ApplicationError::new("Failed to get nowcast", StatusCode::INTERNAL_SERVER_ERROR)
             })?;
             nowcast_cache
                 .set(
@@ -91,12 +91,15 @@ pub async fn nowcasts(
     State(app_state): State<AppState>,
     Query(provider_query): Query<ProviderQuery>,
     Query(location_query): Query<LocationQuery>,
-) -> Result<Json<Vec<Nowcast>>, InternalApplicationError> {
+) -> Result<Json<Vec<Nowcast>>, ApplicationError> {
     let location = find_location(location_query, &app_state.client, &app_state.location_cache)
         .await
         .map_err(|err| {
             error!("Error {}", err);
-            InternalApplicationError::new("Failed to get location data")
+            ApplicationError::new(
+                "Failed to get location data",
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
         })?;
 
     let casts = match provider_query.provider {

@@ -4,6 +4,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use reqwest::StatusCode;
 use tokio::time::Instant;
 
 use crate::{
@@ -12,19 +13,20 @@ use crate::{
     AppState,
 };
 
-use super::error::InternalApplicationError;
+use super::error::ApplicationError;
 
 pub async fn lookup_location(
     client: &reqwest::Client,
     location: &str,
     loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
-) -> Result<OpenWeatherMapLocation, InternalApplicationError> {
+) -> Result<OpenWeatherMapLocation, ApplicationError> {
     match loc_cache.get(location.to_string()).await {
         Some(location) => match location {
             Some(loc) => Ok(loc),
-            None => {
-                Err(InternalApplicationError::new("Location not found"))
-            }
+            None => Err(ApplicationError::new(
+                "Location not found",
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )),
         },
         None => {
             let res = match OpenWeatherMapLocation::fetch(client, location).await {
@@ -37,7 +39,10 @@ pub async fn lookup_location(
                                 Instant::now() + Duration::from_secs(300),
                             )
                             .await;
-                        return Err(InternalApplicationError::new("Location not found"));
+                        return Err(ApplicationError::new(
+                            "Location not found",
+                            StatusCode::NOT_FOUND,
+                        ));
                     }
                     locs.first().unwrap().clone()
                 }
@@ -49,7 +54,10 @@ pub async fn lookup_location(
                             Instant::now() + Duration::from_secs(300),
                         )
                         .await;
-                    return Err(InternalApplicationError::new("Location not found"));
+                    return Err(ApplicationError::new(
+                        "Location not found",
+                        StatusCode::NOT_FOUND,
+                    ));
                 }
             };
             loc_cache
@@ -67,12 +75,15 @@ pub async fn lookup_location(
 pub async fn geocoding(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
-) -> Result<Json<Vec<OpenWeatherMapLocation>>, InternalApplicationError> {
+) -> Result<Json<Vec<OpenWeatherMapLocation>>, ApplicationError> {
     let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
         .await
         .ok_or_else(|| {
             log::error!("Failed to get geocoding data from OpenWeatherMap");
-            InternalApplicationError::new("Failed to get geocoding data from OpenWeatherMap")
+            ApplicationError::new(
+                "Failed to get geocoding data from OpenWeatherMap",
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
         })?;
     Ok(Json(res))
 }

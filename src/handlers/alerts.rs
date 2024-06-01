@@ -10,16 +10,17 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use reqwest::StatusCode;
 use tokio::time::Instant;
 
-use super::{error::InternalApplicationError, location::lookup_location};
+use super::{error::ApplicationError, location::lookup_location};
 
 pub type Alerts = Vec<Alert>;
 
 pub async fn alerts(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
-) -> Result<Json<Vec<Alert>>, InternalApplicationError> {
+) -> Result<Json<Vec<Alert>>, ApplicationError> {
     let location = lookup_location(
         &app_state.client,
         &query.location,
@@ -35,7 +36,10 @@ pub async fn alerts(
                 .await
                 .map_err(|err| {
                     log::error!("Error {}", err);
-                    InternalApplicationError::new("Failed to get Met.no alerts")
+                    ApplicationError::new(
+                        "Failed to get Met.no alerts",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    )
                 })?;
             app_state
                 .alert_cache

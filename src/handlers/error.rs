@@ -7,39 +7,31 @@ use std::{
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
-//TODO: this should be something else than InternalApplicationError
 #[derive(Debug)]
-pub struct InternalApplicationError {
+pub struct ApplicationError {
     message: String,
+    status_code: StatusCode,
 }
 
-impl Display for InternalApplicationError {
+impl Display for ApplicationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
 }
 
-//TODO: add other stuffies here
-impl Error for InternalApplicationError {}
+impl Error for ApplicationError {}
 
-impl InternalApplicationError {
-    pub fn new(message: impl Into<String>) -> Self {
+impl ApplicationError {
+    pub fn new(message: &str, status_code: StatusCode) -> Self {
         Self {
             message: message.into(),
+            status_code,
         }
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 
-impl IntoResponse for InternalApplicationError {
+impl IntoResponse for ApplicationError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            self.message().to_string(),
-        )
-            .into_response()
+        (self.status_code, self.message.to_string()).into_response()
     }
 }
