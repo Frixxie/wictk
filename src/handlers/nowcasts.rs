@@ -60,7 +60,7 @@ async fn fetch_from_provider<T>(
     client: &Client,
     location: &Coordinates,
     provider_name: &str,
-    nowcast_cache: &Cache<String, Nowcast>,
+    nowcast_cache: &Cache<String, Option<Nowcast>>,
 ) -> Result<Nowcast, ApplicationError>
 where
     T: NowcastFetcher,
@@ -69,20 +69,38 @@ where
         .get(format!("{}-{}", location.to_string(), provider_name))
         .await;
     match nowcast {
-        Some(nowcast) => Ok(nowcast),
+        Some(nowcast) => {
+            let res = nowcast
+                .ok_or_else(|| ApplicationError::new("{} Not in cache", StatusCode::NOT_FOUND))?;
+            Ok(res)
+        }
         None => {
             let res = T::fetch(client, location).await.map_err(|err| {
                 error!("Error {}", err);
                 ApplicationError::new("Failed to get nowcast", StatusCode::INTERNAL_SERVER_ERROR)
-            })?;
-            nowcast_cache
-                .set(
-                    format!("{}-{}", location.to_string(), provider_name),
-                    res.clone(),
-                    Instant::now() + Duration::from_secs(300),
-                )
-                .await;
-            Ok(res)
+            });
+            match res {
+                Ok(r) => {
+                    nowcast_cache
+                        .set(
+                            format!("{}-{}", location.to_string(), provider_name),
+                            Some(r.clone()),
+                            Instant::now() + Duration::from_secs(300),
+                        )
+                        .await;
+                    Ok(r)
+                }
+                Err(e) => {
+                    nowcast_cache
+                        .set(
+                            format!("{}-{}", location.to_string(), provider_name),
+                            None,
+                            Instant::now() + Duration::from_secs(300),
+                        )
+                        .await;
+                    Err(e)
+                }
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ pub struct AppState {
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
     pub location_cache: Cache<String, Option<OpenWeatherMapLocation>>,
-    pub nowcast_cache: Cache<String, Nowcast>,
+    pub nowcast_cache: Cache<String, Option<Nowcast>>,
 }
 
 impl AppState {
