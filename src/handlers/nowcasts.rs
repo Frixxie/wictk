@@ -77,7 +77,7 @@ where
             })?;
             nowcast_cache
                 .set(
-                    location.to_string(),
+                    format!("{}-{}", location.to_string(), provider_name),
                     res.clone(),
                     Instant::now() + Duration::from_secs(300),
                 )
