@@ -5,9 +5,10 @@ all: test
 build:
 	cargo check --verbose
 	cargo b --verbose
+	cargo install cargo-nextest
 
 test: build
-	cargo t --verbose
+	cargo nextest run
 
 docker_builder:
 	docker buildx create --name builder --platform linux/amd64,linux/arm64
