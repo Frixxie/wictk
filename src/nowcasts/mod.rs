@@ -1,8 +1,10 @@
 mod met;
 mod openweathermap;
+mod simple;
 
 pub use met::MetNowcast;
 pub use openweathermap::OpenWeatherNowcast;
+pub use simple::SimpleNowcast;
 
 use std::error::Error;
 
@@ -15,6 +17,7 @@ use crate::locations::Coordinates;
 pub enum Nowcast {
     Met(MetNowcast),
     OpenWeather(OpenWeatherNowcast),
+    Simple(SimpleNowcast),
 }
 
 pub trait NowcastFetcher {

@@ -12,7 +12,7 @@ use tokio::time::Instant;
 use crate::{
     cache::{Cache, TimedCache},
     locations::{City, Coordinates, CoordinatesAsString, OpenWeatherMapLocation},
-    nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast},
+    nowcasts::{MetNowcast, Nowcast, NowcastFetcher, OpenWeatherNowcast, SimpleNowcast},
     AppState,
 };
 
@@ -145,22 +145,35 @@ pub async fn nowcasts(
                 ]
             }
         },
-        None => vec![
-            fetch_from_provider::<MetNowcast>(
-                &app_state.client,
-                &location,
-                "MET",
-                &app_state.nowcast_cache,
-            )
-            .await,
-            fetch_from_provider::<OpenWeatherNowcast>(
-                &app_state.client,
-                &location,
-                "OWM",
-                &app_state.nowcast_cache,
-            )
-            .await,
-        ],
+        None => {
+            let res = vec![
+                fetch_from_provider::<MetNowcast>(
+                    &app_state.client,
+                    &location,
+                    "MET",
+                    &app_state.nowcast_cache,
+                )
+                .await,
+                fetch_from_provider::<OpenWeatherNowcast>(
+                    &app_state.client,
+                    &location,
+                    "OWM",
+                    &app_state.nowcast_cache,
+                )
+                .await,
+            ];
+            res.into_iter()
+                .map(|res| {
+                    res.and_then(|r| match r {
+                        Nowcast::Met(r) => Ok(Nowcast::Simple(Into::<SimpleNowcast>::into(r))),
+                        Nowcast::OpenWeather(r) => {
+                            Ok(Nowcast::Simple(Into::<SimpleNowcast>::into(r)))
+                        }
+                        Nowcast::Simple(_) => panic!("Should not be able to get simple provider"),
+                    })
+                })
+                .collect()
+        }
     };
 
     let nowcasts: Vec<Nowcast> = casts.into_iter().filter_map(|res| res.ok()).collect();
