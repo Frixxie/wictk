@@ -182,7 +182,7 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let location = Coordinates::new(63.4308, 10.4034);
+        let location = Coordinates::new(10.4034, 63.4308);
         let nowcast = OpenWeatherNowcast::fetch(&client, &location).await;
         assert!(nowcast.is_ok())
     }

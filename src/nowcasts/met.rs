@@ -29,8 +29,8 @@ impl TryFrom<serde_json::Value> for MetNowcast {
             .as_array()
             .ok_or_else(|| NowcastError::new("Could not find location"))?;
         let location = Coordinates::new(
-            location[0].as_f64().unwrap() as f32,
             location[1].as_f64().unwrap() as f32,
+            location[0].as_f64().unwrap() as f32,
         );
 
         let time = value["properties"]["meta"]["updated_at"]
@@ -134,8 +134,8 @@ mod tests {
 
         let met = MetNowcast::try_from(json_value).unwrap();
 
-        assert_eq!(met.location.lat, 10.4034);
         assert_eq!(met.location.lon, 63.4308);
+        assert_eq!(met.location.lat, 10.4034);
         assert_eq!(met.time.to_string(), "2023-08-14 18:16:07 UTC");
         assert_eq!(met.description, "cloudy");
         assert_eq!(met.air_temperature, 17.7);
@@ -157,7 +157,7 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let location = Coordinates::new(63.4308, 10.4034);
+        let location = Coordinates::new(10.4034, 63.4308);
         let nowcast = MetNowcast::fetch(&client, &location).await;
         assert!(nowcast.is_ok())
     }

@@ -148,7 +148,7 @@ mod tests {
     #[tokio::test]
     async fn met_fetch() {
         let client = Client::new();
-        let location = Coordinates::new(68.3229, 15.4258);
+        let location = Coordinates::new(15.4258, 68.3229);
         let alerts = MetAlert::fetch(client, location).await;
         assert!(alerts.is_ok());
     }
