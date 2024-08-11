@@ -17,24 +17,24 @@ mod tests {
 
     #[test]
     fn test_location() {
-        let location = Coordinates::new(1.0, 2.0);
-        assert_eq!(location.lat, 1.0);
+        let location = Coordinates::new(2.0, 1.0);
         assert_eq!(location.lon, 2.0);
+        assert_eq!(location.lat, 1.0);
     }
 
     #[test]
     fn deserialize_location() {
-        let json = r#"{"lat": 1.0, "lon": 2.0}"#;
+        let json = "{\"lon\": 2.0, \"lat\": 1.0}";
         let location: Coordinates = serde_json::from_str(json).unwrap();
-        assert_eq!(location.lat, 1.0);
         assert_eq!(location.lon, 2.0);
+        assert_eq!(location.lat, 1.0);
     }
 
     #[test]
     fn serialize_location() {
-        let location = Coordinates::new(1.0, 2.0);
+        let location = Coordinates::new(2.0, 1.0);
         let json = serde_json::to_string(&location).unwrap();
-        assert_eq!(json, r#"{"lat":1.0,"lon":2.0}"#);
+        assert_eq!(json, "{\"lon\":2.0,\"lat\":1.0}");
     }
 
     #[test]
