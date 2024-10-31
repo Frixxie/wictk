@@ -38,6 +38,7 @@ impl AppState {
 async fn main() -> Result<(), anyhow::Error> {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
+        .json()
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
