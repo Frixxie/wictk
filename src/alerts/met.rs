@@ -83,7 +83,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
 impl AlertFetcher for MetAlert {
     async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
         let result: Vec<Alert> = client
-            .get("https://api.met.no/weatherapi/metalerts/1.1/.json")
+            .get("https://api.met.no/weatherapi/metalerts/2.0/current.json")
             .send()
             .await
             .map_err(|err| {
