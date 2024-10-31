@@ -11,7 +11,7 @@ test: build
 	cargo nextest run
 
 docker_builder:
-	docker buildx create --name builder --platform linux/amd64,linux/arm64
+	docker buildx create --name builder --platform linux/amd64
 
 docker_login:
 	docker login ghcr.io -u Frixxie -p $(GITHUB_TOKEN)
