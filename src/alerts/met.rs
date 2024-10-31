@@ -87,13 +87,13 @@ impl AlertFetcher for MetAlert {
             .send()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                tracing::error!("Error {}", err);
                 AlertError::new("Request to Met.no failed")
             })?
             .json::<Value>()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                tracing::error!("Error {}", err);
                 AlertError::new("Deserialization from Met.no failed")
             })?
             .get("features")

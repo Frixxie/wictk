@@ -8,13 +8,14 @@ use axum::serve;
 use handlers::Alerts;
 use locations::OpenWeatherMapLocation;
 use nowcasts::Nowcast;
-use simple_logger::SimpleLogger;
 use tokio::net::TcpListener;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 use crate::cache::Cache;
 use crate::handlers::setup_router;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AppState {
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
@@ -35,10 +36,12 @@ impl AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
-        .init()
-        .unwrap();
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::INFO)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     let client_builder = reqwest::Client::builder();
     static APP_USER_AGENT: &str = concat!(
         env!("CARGO_PKG_NAME"),

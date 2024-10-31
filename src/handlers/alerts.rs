@@ -12,11 +12,13 @@ use axum::{
 };
 use reqwest::StatusCode;
 use tokio::time::Instant;
+use tracing::instrument;
 
 use super::{error::ApplicationError, location::lookup_location};
 
 pub type Alerts = Vec<Alert>;
 
+#[instrument]
 pub async fn alerts(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
@@ -35,7 +37,7 @@ pub async fn alerts(
             let alerts = MetAlert::fetch(app_state.client.clone(), location.location)
                 .await
                 .map_err(|err| {
-                    log::error!("Error {}", err);
+                    tracing::error!("Error {}", err);
                     ApplicationError::new(
                         "Failed to get Met.no alerts",
                         StatusCode::INTERNAL_SERVER_ERROR,

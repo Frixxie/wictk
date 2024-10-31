@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
 use super::Coordinates;
 
@@ -25,17 +26,17 @@ impl OpenWeatherMapLocation {
             .await
         {
             Ok(result) => {
-                log::info!("Statuscode from openweathermap: {}", result.status());
+                info!("Statuscode from openweathermap: {}", result.status());
                 match result.json::<Vec<OpenWeatherMapLocation>>().await {
                     Ok(res) => Some(res),
                     Err(err) => {
-                        log::error!("Error: {}", err);
+                        error!("Error: {}", err);
                         None
                     }
                 }
             }
             Err(err) => {
-                log::error!("Error: {}", err);
+                error!("Error: {}", err);
                 None
             }
         }

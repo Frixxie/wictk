@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::error;
 
 use crate::locations::Coordinates;
 
@@ -104,18 +105,18 @@ impl NowcastFetcher for MetNowcast {
             .send()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                error!("Error {}", err);
                 NowcastError::new("Request to Met.no failed")
             })?
             .json::<Value>()
             .await
             .map_err(|err| {
-                log::error!("Error {}", err);
+                error!("Error {}", err);
                 NowcastError::new("Deserialization from Met.no failed")
             })?
             .try_into()
             .map_err(|err| {
-                log::error!("Error {}", err);
+                error!("Error {}", err);
                 NowcastError::new("Failed to convert from met value into nowcast type")
             })?;
         Ok(met_cast.into())

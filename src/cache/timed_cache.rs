@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use log::info;
+use tracing::info;
 use tokio::{sync::RwLock, time::Instant};
 
 pub trait TimedCache<K, V> {
@@ -8,7 +8,7 @@ pub trait TimedCache<K, V> {
     async fn set(&self, key: K, value: V, expiration: Instant);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Cache<K, V> {
     cache: Arc<RwLock<HashMap<K, (Instant, V)>>>,
 }

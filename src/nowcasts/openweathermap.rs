@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use log::error;
+use tracing::error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

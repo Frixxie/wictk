@@ -6,7 +6,7 @@ use axum::{
     routing::get,
     Router,
 };
-use log::info;
+use tracing::{info, instrument};
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 
@@ -25,6 +25,7 @@ mod status;
 
 pub use alerts::Alerts;
 
+#[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();
     let uri = request.uri().clone();

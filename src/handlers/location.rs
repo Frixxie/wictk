@@ -89,7 +89,7 @@ pub async fn geocoding(
     let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
         .await
         .ok_or_else(|| {
-            log::error!("Failed to get geocoding data from OpenWeatherMap");
+            tracing::error!("Failed to get geocoding data from OpenWeatherMap");
             ApplicationError::new(
                 "Failed to get geocoding data from OpenWeatherMap",
                 StatusCode::INTERNAL_SERVER_ERROR,

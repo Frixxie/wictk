@@ -4,10 +4,11 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use log::error;
+use tracing::error;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
+use tracing::instrument;
 
 use crate::{
     cache::{Cache, TimedCache},
@@ -45,13 +46,13 @@ pub async fn find_location(
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NowcastProvider {
     Met,
     OpenWeatherMap,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProviderQuery {
     pub provider: Option<NowcastProvider>,
 }
@@ -105,6 +106,7 @@ where
     }
 }
 
+#[instrument]
 pub async fn nowcasts(
     State(app_state): State<AppState>,
     Query(provider_query): Query<ProviderQuery>,
