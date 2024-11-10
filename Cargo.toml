@@ -1,19 +1,19 @@
 [package]
 name = "wictk"
-version = "0.7.0"
+version = "0.7.3"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.91"
+anyhow = "1.0.93"
 axum = { version = "0.7.7", features = ["json", "macros"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 reqwest = { version = "0.12.9", features = ["json"] }
 serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
-tokio = { version = "1.41.0", features = ["full", "tracing"] }
+tokio = { version = "1.41.1", features = ["full", "tracing"] }
 tower = { version = "0.5.1", features = ["full", "tracing"] }
 tower-http = "0.6.1"
 tracing = "0.1.40"
