@@ -10,7 +10,7 @@ metadata:
   namespace: default
 spec:
   ports:
-  - port: 3000
+  - port: 3010
     protocol: TCP
     targetPort: 3000
   selector:
