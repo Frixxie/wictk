@@ -1,6 +1,10 @@
 use crate::AppState;
 use axum::{
-    extract::{Request, State}, middleware::{self, Next}, response::Response, routing::get, Router
+    extract::{Request, State},
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+    Router,
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -54,16 +58,18 @@ pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> R
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
-        .with_state(app_state)
-        .route("/metrics", get(metrics))
-        .with_state(metrics_handler)
-        .layer(ServiceBuilder::new().layer(middleware::from_fn(profile_endpoint)));
+        .with_state(app_state);
 
     let status = Router::new()
         .route("/ping", get(ping))
         .route("/health", get(health));
 
-    Router::new().nest("/status", status).nest("/api", api)
+    Router::new()
+        .route("/metrics", get(metrics))
+        .with_state(metrics_handler)
+        .nest("/status", status)
+        .nest("/api", api)
+        .layer(ServiceBuilder::new().layer(middleware::from_fn(profile_endpoint)))
 }
 
 #[instrument]
