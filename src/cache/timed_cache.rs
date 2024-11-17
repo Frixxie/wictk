@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use tracing::info;
+use metrics::gauge;
 use tokio::{sync::RwLock, time::Instant};
+use tracing::info;
 
 pub trait TimedCache<K, V> {
     async fn get(&self, key: K) -> Option<V>;
@@ -44,6 +45,7 @@ where
         if Instant::now() > duration {
             info!("Key {key} has expired removing");
             self.cache.write().await.remove(&key);
+            gauge!("cache_size").decrement(1);
             return None;
         }
 
@@ -52,6 +54,7 @@ where
     }
 
     async fn set(&self, key: K, value: V, duration: Instant) {
+        gauge!("cache_size").increment(1);
         info!("Inserting {} into cache!", key);
         self.cache.write().await.insert(key, (duration, value));
     }

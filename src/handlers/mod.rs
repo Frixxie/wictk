@@ -1,14 +1,12 @@
 use crate::AppState;
 use axum::{
-    extract::Request,
-    middleware::{self, Next},
-    response::Response,
-    routing::get,
-    Router,
+    extract::{Request, State}, middleware::{self, Next}, response::Response, routing::get, Router
 };
-use tracing::{info, instrument};
+use metrics::histogram;
+use metrics_exporter_prometheus::PrometheusHandle;
 use tokio::time::Instant;
 use tower::ServiceBuilder;
+use tracing::{info, instrument};
 
 use self::{
     alerts::alerts,
@@ -28,7 +26,8 @@ pub use alerts::Alerts;
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let method = request.method().clone().to_string();
-    let uri = request.uri().clone();
+    let uri = request.uri().clone().to_string();
+
     info!("Handling {} at {}", method, uri);
 
     let now = Instant::now();
@@ -36,6 +35,10 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     let response = next.run(request).await;
 
     let elapsed = now.elapsed();
+
+    let labels = [("method", method.clone()), ("uri", uri.clone())];
+
+    histogram!("handler", &labels).record(elapsed);
 
     info!(
         "Finished handling {} at {}, used {} ms",
@@ -46,12 +49,14 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
     response
 }
 
-pub fn setup_router(app_state: AppState) -> Router {
+pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> Router {
     let api = Router::new()
         .route("/alerts", get(alerts))
         .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
         .with_state(app_state)
+        .route("/metrics", get(metrics))
+        .with_state(metrics_handler)
         .layer(ServiceBuilder::new().layer(middleware::from_fn(profile_endpoint)));
 
     let status = Router::new()
@@ -59,6 +64,11 @@ pub fn setup_router(app_state: AppState) -> Router {
         .route("/health", get(health));
 
     Router::new().nest("/status", status).nest("/api", api)
+}
+
+#[instrument]
+async fn metrics(State(handle): State<PrometheusHandle>) -> String {
+    handle.render()
 }
 
 #[cfg(test)]

@@ -7,6 +7,7 @@ mod nowcasts;
 use axum::serve;
 use handlers::Alerts;
 use locations::OpenWeatherMapLocation;
+use metrics_exporter_prometheus::PrometheusBuilder;
 use nowcasts::Nowcast;
 use tokio::net::TcpListener;
 use tracing::Level;
@@ -42,6 +43,9 @@ async fn main() -> Result<(), anyhow::Error> {
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
+    let metrics_handler = PrometheusBuilder::new()
+        .install_recorder()
+        .expect("failed to install recorder/exporter");
 
     let client_builder = reqwest::Client::builder();
     static APP_USER_AGENT: &str = concat!(
@@ -55,7 +59,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let app_state = AppState::new(client);
 
-    let app = setup_router(app_state);
+    let app = setup_router(app_state, metrics_handler);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
     serve(listener, app).await?;
