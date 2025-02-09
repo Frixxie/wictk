@@ -4,6 +4,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use redact::Secret;
 use reqwest::StatusCode;
 use tokio::time::Instant;
 
@@ -60,7 +61,7 @@ pub async fn lookup_location(
     client: &reqwest::Client,
     location: &str,
     loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
-    apikey: &str,
+    apikey: &Secret<String>,
 ) -> Result<OpenWeatherMapLocation, ApplicationError> {
     match loc_cache.get(location.to_string()).await {
         Some(location) => match location {

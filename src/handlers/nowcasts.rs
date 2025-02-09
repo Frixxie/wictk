@@ -2,6 +2,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use redact::Secret;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -27,7 +28,7 @@ pub async fn find_location(
     location_query: LocationQuery,
     client: &Client,
     location_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
-    apikey: &str,
+    apikey: &Secret<String>,
 ) -> anyhow::Result<Coordinates> {
     match location_query {
         LocationQuery::Location(location) => {

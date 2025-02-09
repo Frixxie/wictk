@@ -9,6 +9,7 @@ use handlers::Alerts;
 use locations::OpenWeatherMapLocation;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use nowcasts::Nowcast;
+use redact::Secret;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
@@ -67,7 +68,7 @@ impl From<LogLevel> for Level {
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub openweathermap_apikey: String,
+    pub openweathermap_apikey: Secret<String>,
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
     pub location_cache: Cache<String, Option<OpenWeatherMapLocation>>,
@@ -77,7 +78,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(client: reqwest::Client, apikey: String) -> Self {
         Self {
-            openweathermap_apikey: apikey,
+            openweathermap_apikey: Secret::new(apikey),
             client,
             alert_cache: Cache::new(),
             location_cache: Cache::new(),

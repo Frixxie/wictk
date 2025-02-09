@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use redact::Secret;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -115,12 +116,12 @@ impl OpenWeatherNowcast {
     pub async fn fetch(
         client: &Client,
         location: &Coordinates,
-        apikey: &str,
+        apikey: &Secret<String>,
     ) -> Result<Nowcast, NowcastError> {
         let openweathermap: OpenWeatherNowcast = client
             .get("https://api.openweathermap.org/data/2.5/weather")
             .query(&[("lat", location.lat), ("lon", location.lon)])
-            .query(&[("appid", apikey)])
+            .query(&[("appid", apikey.expose_secret())])
             .query(&[("units", "metric")])
             .send()
             .await

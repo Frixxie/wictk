@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use redact::Secret;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
@@ -17,11 +18,15 @@ pub struct OpenWeatherMapLocation {
 }
 
 impl OpenWeatherMapLocation {
-    pub async fn fetch(client: &Client, location: &str, apikey: &str) -> Option<Vec<Self>> {
+    pub async fn fetch(
+        client: &Client,
+        location: &str,
+        apikey: &Secret<String>,
+    ) -> Option<Vec<Self>> {
         match client
             .get("https://api.openweathermap.org/geo/1.0/direct")
             .query(&[("q", location)])
-            .query(&[("appid", apikey)])
+            .query(&[("appid", apikey.expose_secret())])
             .send()
             .await
         {
