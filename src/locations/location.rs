@@ -17,11 +17,11 @@ pub struct OpenWeatherMapLocation {
 }
 
 impl OpenWeatherMapLocation {
-    pub async fn fetch(client: &Client, location: &str) -> Option<Vec<Self>> {
+    pub async fn fetch(client: &Client, location: &str, apikey: &str) -> Option<Vec<Self>> {
         match client
             .get("https://api.openweathermap.org/geo/1.0/direct")
             .query(&[("q", location)])
-            .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+            .query(&[("appid", apikey)])
             .send()
             .await
         {

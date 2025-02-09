@@ -1,7 +1,5 @@
 FROM rust:latest as build-stage
 WORKDIR /usr/src/app
-ARG APIKEY
-ENV OPENWEATHERMAPAPIKEY=$APIKEY
 COPY . .
 RUN cargo install --path .
 

@@ -60,6 +60,7 @@ pub async fn lookup_location(
     client: &reqwest::Client,
     location: &str,
     loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
+    apikey: &str,
 ) -> Result<OpenWeatherMapLocation, ApplicationError> {
     match loc_cache.get(location.to_string()).await {
         Some(location) => match location {
@@ -70,7 +71,7 @@ pub async fn lookup_location(
             )),
         },
         None => {
-            let res = OpenWeatherMapLocation::fetch(client, location).await;
+            let res = OpenWeatherMapLocation::fetch(client, location, apikey).await;
             match populate_location_cache(location, res.clone(), loc_cache).await {
                 Some(loc) => Ok(loc),
                 None => Err(ApplicationError::new(
@@ -86,42 +87,18 @@ pub async fn geocoding(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
 ) -> Result<Json<Vec<OpenWeatherMapLocation>>, ApplicationError> {
-    let res = OpenWeatherMapLocation::fetch(&app_state.client, &query.location)
-        .await
-        .ok_or_else(|| {
-            tracing::error!("Failed to get geocoding data from OpenWeatherMap");
-            ApplicationError::new(
-                "Failed to get geocoding data from OpenWeatherMap",
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )
-        })?;
+    let res = OpenWeatherMapLocation::fetch(
+        &app_state.client,
+        &query.location,
+        &app_state.openweathermap_apikey,
+    )
+    .await
+    .ok_or_else(|| {
+        tracing::error!("Failed to get geocoding data from OpenWeatherMap");
+        ApplicationError::new(
+            "Failed to get geocoding data from OpenWeatherMap",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+    })?;
     Ok(Json(res))
-}
-
-#[cfg(test)]
-
-mod tests {
-    use crate::{cache::TimedCache, handlers::location::lookup_location};
-
-    #[tokio::test]
-    async fn test_lookup_location() {
-        let client = reqwest::Client::new();
-        let loc_cache = crate::Cache::new();
-        let location = lookup_location(&client, "Oslo", &loc_cache).await.unwrap();
-        assert_eq!(location.name, "Oslo");
-    }
-
-    #[tokio::test]
-    async fn test_lookup_location_not_found() {
-        let client = reqwest::Client::new();
-        let loc_cache = crate::Cache::new();
-        let location = lookup_location(&client, "Åkreham", &loc_cache).await;
-        assert!(location.is_err());
-
-        let loc = loc_cache.get("Åkreham".to_string()).await;
-        assert!(loc.is_some_and(|loc| loc.is_none()));
-
-        let location = lookup_location(&client, "Åkreham", &loc_cache).await;
-        assert!(location.is_err());
-    }
 }

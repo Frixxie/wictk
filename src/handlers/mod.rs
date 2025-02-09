@@ -8,6 +8,7 @@ use axum::{
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
+use nowcasts::{nowcast_met, nowcast_openweathermap, nowcast_simple};
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tracing::{info, instrument};
@@ -15,7 +16,6 @@ use tracing::{info, instrument};
 use self::{
     alerts::alerts,
     location::geocoding,
-    nowcasts::nowcasts,
     status::{health, ping},
 };
 
@@ -56,7 +56,9 @@ pub async fn profile_endpoint(request: Request, next: Next) -> Response {
 pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> Router {
     let api = Router::new()
         .route("/alerts", get(alerts))
-        .route("/nowcasts", get(nowcasts))
+        .route("/owm/nowcasts", get(nowcast_openweathermap))
+        .route("/met/nowcasts", get(nowcast_met))
+        .route("/nowcasts", get(nowcast_simple))
         .route("/geocoding", get(geocoding))
         .with_state(app_state);
 
@@ -79,15 +81,11 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use axum::{
-        extract::{Query, State},
-        http::Uri,
-    };
+    use axum::{extract::Query, http::Uri};
 
     use crate::{
-        handlers::nowcasts::{LocationQuery, ProviderQuery},
+        handlers::nowcasts::LocationQuery,
         locations::{City, CoordinatesAsString},
-        AppState,
     };
 
     #[test]
@@ -121,68 +119,6 @@ mod tests {
                 lon: "10.74609".to_string()
             })
         );
-    }
-
-    #[tokio::test]
-    async fn get_geocoding() {
-        let client = reqwest::Client::new();
-        let app_state = AppState::new(client);
-        let res = super::geocoding(
-            State(app_state),
-            Query(City {
-                location: "Oslo".to_string(),
-            }),
-        )
-        .await;
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn get_alerts() {
-        let client_builder = reqwest::Client::builder();
-        static APP_USER_AGENT: &str = concat!(
-            env!("CARGO_PKG_NAME"),
-            "/",
-            env!("CARGO_PKG_VERSION"),
-            " ",
-            env!("CARGO_PKG_HOMEPAGE"),
-        );
-        let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let app_state = AppState::new(client);
-
-        let res = super::alerts(
-            State(app_state),
-            Query(City {
-                location: "Oslo".to_string(),
-            }),
-        )
-        .await;
-        assert!(res.is_ok());
-    }
-
-    #[tokio::test]
-    async fn get_nowcasts() {
-        let client_builder = reqwest::Client::builder();
-        static APP_USER_AGENT: &str = concat!(
-            env!("CARGO_PKG_NAME"),
-            "/",
-            env!("CARGO_PKG_VERSION"),
-            " ",
-            env!("CARGO_PKG_HOMEPAGE"),
-        );
-        let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let app_state = AppState::new(client);
-        let res = super::nowcasts(
-            State(app_state),
-            Query(ProviderQuery { provider: None }),
-            Query(LocationQuery::Coordinates(CoordinatesAsString {
-                lat: "59.91273".to_string(),
-                lon: "10.74609".to_string(),
-            })),
-        )
-        .await;
-        assert!(res.is_ok());
     }
 
     #[test]

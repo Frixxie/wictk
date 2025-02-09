@@ -9,6 +9,7 @@ use handlers::Alerts;
 use locations::OpenWeatherMapLocation;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use nowcasts::Nowcast;
+use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -16,8 +17,57 @@ use tracing_subscriber::FmtSubscriber;
 use crate::cache::Cache;
 use crate::handlers::setup_router;
 
+#[derive(Debug, Clone)]
+enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "trace" => Ok(LogLevel::Trace),
+            "debug" => Ok(LogLevel::Debug),
+            "info" => Ok(LogLevel::Info),
+            "warn" => Ok(LogLevel::Warn),
+            "error" => Ok(LogLevel::Error),
+            _ => Err("unknown log level".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, StructOpt)]
+pub struct Opts {
+    #[structopt(short, long, default_value = "0.0.0.0:3000")]
+    host: String,
+
+    #[structopt(short, long, env = "OPENWEATHERMAPAPIKEY")]
+    apikey: String,
+
+    #[structopt(short, long, default_value = "info")]
+    log_level: LogLevel,
+}
+
+impl From<LogLevel> for Level {
+    fn from(log_level: LogLevel) -> Self {
+        match log_level {
+            LogLevel::Trace => Level::TRACE,
+            LogLevel::Debug => Level::DEBUG,
+            LogLevel::Info => Level::INFO,
+            LogLevel::Warn => Level::WARN,
+            LogLevel::Error => Level::ERROR,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct AppState {
+    pub openweathermap_apikey: String,
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
     pub location_cache: Cache<String, Option<OpenWeatherMapLocation>>,
@@ -25,8 +75,9 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(client: reqwest::Client) -> Self {
+    pub fn new(client: reqwest::Client, apikey: String) -> Self {
         Self {
+            openweathermap_apikey: apikey,
             client,
             alert_cache: Cache::new(),
             location_cache: Cache::new(),
@@ -37,8 +88,12 @@ impl AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let opts = Opts::from_args();
+
+    let level: Level = opts.log_level.into();
+
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
+        .with_max_level(level)
         .json()
         .finish();
 
@@ -57,11 +112,11 @@ async fn main() -> Result<(), anyhow::Error> {
     );
     let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
 
-    let app_state = AppState::new(client);
+    let app_state = AppState::new(client, opts.apikey);
 
     let app = setup_router(app_state, metrics_handler);
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = TcpListener::bind(opts.host).await?;
     serve(listener, app).await?;
 
     Ok(())

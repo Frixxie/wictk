@@ -6,7 +6,7 @@ use tracing::error;
 
 use crate::locations::Coordinates;
 
-use super::{Nowcast, NowcastError, NowcastFetcher};
+use super::{Nowcast, NowcastError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetNowcast {
@@ -97,8 +97,8 @@ impl From<MetNowcast> for Nowcast {
     }
 }
 
-impl NowcastFetcher for MetNowcast {
-    async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError> {
+impl MetNowcast {
+    pub async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError> {
         let met_cast: MetNowcast = client
             .get("https://api.met.no/weatherapi/nowcast/2.0/complete")
             .query(&[("lat", location.lat), ("lon", location.lon)])

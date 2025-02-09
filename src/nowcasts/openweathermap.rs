@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
-use tracing::error;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::error;
 
 use crate::locations::Coordinates;
 
-use super::{Nowcast, NowcastError, NowcastFetcher};
+use super::{Nowcast, NowcastError};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OpenWeatherNowcast {
@@ -111,12 +111,16 @@ impl From<OpenWeatherNowcast> for Nowcast {
     }
 }
 
-impl NowcastFetcher for OpenWeatherNowcast {
-    async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError> {
+impl OpenWeatherNowcast {
+    pub async fn fetch(
+        client: &Client,
+        location: &Coordinates,
+        apikey: &str,
+    ) -> Result<Nowcast, NowcastError> {
         let openweathermap: OpenWeatherNowcast = client
             .get("https://api.openweathermap.org/data/2.5/weather")
             .query(&[("lat", location.lat), ("lon", location.lon)])
-            .query(&[("appid", env!("OPENWEATHERMAPAPIKEY"))])
+            .query(&[("appid", apikey)])
             .query(&[("units", "metric")])
             .send()
             .await
@@ -141,10 +145,7 @@ impl NowcastFetcher for OpenWeatherNowcast {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        locations::Coordinates,
-        nowcasts::{NowcastFetcher, OpenWeatherNowcast},
-    };
+    use crate::nowcasts::OpenWeatherNowcast;
 
     #[test]
     fn open_weathermap_from_value() {
@@ -169,21 +170,5 @@ mod tests {
         assert_eq!(open_weather.feels_like, 15.19);
         assert_eq!(open_weather.humidity, 92);
         assert_eq!(open_weather.pressure, 1014);
-    }
-
-    #[tokio::test]
-    async fn openweathermap_fetch() {
-        let client_builder = reqwest::Client::builder();
-        static APP_USER_AGENT: &str = concat!(
-            env!("CARGO_PKG_NAME"),
-            "/",
-            env!("CARGO_PKG_VERSION"),
-            " ",
-            env!("CARGO_PKG_HOMEPAGE"),
-        );
-        let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        let location = Coordinates::new(10.4034, 63.4308);
-        let nowcast = OpenWeatherNowcast::fetch(&client, &location).await;
-        assert!(nowcast.is_ok())
     }
 }

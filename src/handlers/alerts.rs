@@ -27,6 +27,7 @@ pub async fn alerts(
         &app_state.client,
         &query.location,
         &app_state.location_cache,
+        &app_state.openweathermap_apikey,
     )
     .await?;
 

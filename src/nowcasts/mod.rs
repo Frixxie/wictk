@@ -8,10 +8,7 @@ pub use simple::SimpleNowcast;
 
 use std::error::Error;
 
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
-use crate::locations::Coordinates;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,10 +16,6 @@ pub enum Nowcast {
     Met(MetNowcast),
     OpenWeather(OpenWeatherNowcast),
     Simple(SimpleNowcast),
-}
-
-pub trait NowcastFetcher {
-    async fn fetch(client: &Client, location: &Coordinates) -> Result<Nowcast, NowcastError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

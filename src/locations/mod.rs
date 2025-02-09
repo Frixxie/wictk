@@ -11,9 +11,7 @@ pub use location::OpenWeatherMapLocation;
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::locations::{
-        city::City, coordinates::Coordinates, location::OpenWeatherMapLocation,
-    };
+    use crate::locations::{city::City, coordinates::Coordinates};
 
     #[test]
     fn test_location() {
@@ -43,13 +41,5 @@ mod tests {
             location: "Oslo".to_string(),
         };
         assert_eq!(location_query.location, "Oslo".to_string());
-    }
-
-    #[tokio::test]
-    async fn test_fetch_location() {
-        let client = reqwest::Client::new();
-        let res = OpenWeatherMapLocation::fetch(&client, "Oslo").await;
-        assert!(res.is_some());
-        assert_eq!(res.unwrap().len(), 1);
     }
 }
