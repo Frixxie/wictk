@@ -11,8 +11,6 @@ test:
   stage: test
   image: "rust:latest"
 
-  services:
-     - postgres:latest
   script:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo test --workspace --verbose
