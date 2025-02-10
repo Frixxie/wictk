@@ -1,11 +1,6 @@
 use std::time::Duration;
 
-use crate::{
-    alerts::{Alert, AlertFetcher, MetAlert},
-    cache::TimedCache,
-    locations::City,
-    AppState,
-};
+use crate::{cache::TimedCache, AppState};
 use axum::{
     extract::{Query, State},
     Json,
@@ -13,6 +8,7 @@ use axum::{
 use reqwest::StatusCode;
 use tokio::time::Instant;
 use tracing::instrument;
+use wictk_core::{Alert, City, MetAlert};
 
 use super::{error::ApplicationError, location::lookup_location};
 

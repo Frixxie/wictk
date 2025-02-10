@@ -45,7 +45,3 @@ impl AlertError {
         }
     }
 }
-
-pub trait AlertFetcher {
-    async fn fetch(client: Client, location: Coordinates) -> Result<Vec<Alert>, AlertError>;
-}

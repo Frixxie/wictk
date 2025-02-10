@@ -7,13 +7,11 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use tracing::instrument;
-
-use crate::{
-    cache::Cache,
-    locations::{City, Coordinates, CoordinatesAsString, OpenWeatherMapLocation},
-    nowcasts::{MetNowcast, Nowcast, OpenWeatherNowcast},
-    AppState,
+use wictk_core::{
+    City, Coordinates, CoordinatesAsString, MetNowcast, Nowcast, OpenWeatherMapLocation, OpenWeatherNowcast,
 };
+
+use crate::{cache::Cache, AppState};
 
 use super::{error::ApplicationError, location::lookup_location};
 

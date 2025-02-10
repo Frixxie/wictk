@@ -7,10 +7,10 @@ use axum::{
 use redact::Secret;
 use reqwest::StatusCode;
 use tokio::time::Instant;
+use wictk_core::{City, OpenWeatherMapLocation};
 
 use crate::{
     cache::{Cache, TimedCache},
-    locations::{City, OpenWeatherMapLocation},
     AppState,
 };
 

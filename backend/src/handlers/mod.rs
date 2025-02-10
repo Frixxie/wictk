@@ -82,11 +82,9 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
 #[cfg(test)]
 mod tests {
     use axum::{extract::Query, http::Uri};
+    use wictk_core::{City, CoordinatesAsString};
 
-    use crate::{
-        handlers::nowcasts::LocationQuery,
-        locations::{City, CoordinatesAsString},
-    };
+    use crate::handlers::nowcasts::LocationQuery;
 
     #[test]
     fn parse_location() {

@@ -1,5 +1,5 @@
 [package]
-name = "wictk"
+name = "backend"
 version = "0.7.3"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
@@ -22,6 +22,7 @@ tower = { version = "0.5.2", features = ["full", "tracing"] }
 tower-http = "0.6.2"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
+wictk_core = {path = "../wictk_core"}
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

@@ -195,6 +195,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "backend"
+version = "0.7.3"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "pretty_assertions",
+ "redact",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "structopt",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "wictk_core",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2314,25 +2337,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "wictk"
-version = "0.7.3"
+name = "wictk_core"
+version = "0.1.0"
 dependencies = [
- "anyhow",
- "axum",
  "chrono",
- "metrics",
- "metrics-exporter-prometheus",
  "pretty_assertions",
  "redact",
  "reqwest",
  "serde",
  "serde_json",
- "structopt",
  "tokio",
- "tower",
- "tower-http",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

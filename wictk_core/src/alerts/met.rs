@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::locations::Coordinates;
 
-use super::{Alert, AlertError, AlertFetcher, Severity};
+use super::{Alert, AlertError, Severity};
 
 impl From<MetAlert> for Alert {
     fn from(met: MetAlert) -> Self {
@@ -80,8 +80,8 @@ impl TryFrom<serde_json::Value> for MetAlert {
     }
 }
 
-impl AlertFetcher for MetAlert {
-    async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
+impl MetAlert {
+    pub async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
         let result: Vec<Alert> = client
             .get("https://api.met.no/weatherapi/metalerts/2.0/current.json")
             .send()

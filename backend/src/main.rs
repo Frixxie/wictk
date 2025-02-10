@@ -1,19 +1,15 @@
-mod alerts;
 mod cache;
 mod handlers;
-mod locations;
-mod nowcasts;
 
 use axum::serve;
 use handlers::Alerts;
-use locations::OpenWeatherMapLocation;
 use metrics_exporter_prometheus::PrometheusBuilder;
-use nowcasts::Nowcast;
 use redact::Secret;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
+use wictk_core::{Nowcast, OpenWeatherMapLocation};
 
 use crate::cache::Cache;
 use crate::handlers::setup_router;
