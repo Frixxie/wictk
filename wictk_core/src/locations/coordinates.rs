@@ -9,9 +9,9 @@ pub struct Coordinates {
     pub lat: f32,
 }
 
-impl ToString for Coordinates {
-    fn to_string(&self) -> String {
-        format!("{},{}", self.lon, self.lat)
+impl std::fmt::Display for Coordinates {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{},{}", self.lon, self.lat)
     }
 }
 

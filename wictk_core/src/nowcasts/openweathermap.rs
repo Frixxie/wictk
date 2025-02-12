@@ -28,6 +28,30 @@ pub struct OpenWeatherNowcast {
     pub pressure: u32,
 }
 
+impl std::fmt::Display for OpenWeatherNowcast {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+            self.dt,
+            self.name,
+            self.country,
+            self.lon,
+            self.lat,
+            self.main,
+            self.desc,
+            self.clouds,
+            self.wind_speed,
+            self.wind_deg,
+            self.visibility,
+            self.temp,
+            self.feels_like,
+            self.humidity,
+            self.pressure
+        )
+    }
+}
+
 impl TryFrom<Value> for OpenWeatherNowcast {
     type Error = NowcastError;
 

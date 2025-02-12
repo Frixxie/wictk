@@ -22,6 +22,24 @@ pub struct MetNowcast {
     pub wind_from_direction: f32,
 }
 
+impl std::fmt::Display for MetNowcast {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}, {}, {}, {}, {}, {}, {}, {}, {}",
+            self.time,
+            self.location,
+            self.description,
+            self.air_temperature,
+            self.relative_humidity,
+            self.precipitation_rate,
+            self.precipitation_amount,
+            self.wind_speed,
+            self.wind_speed_gust
+        )
+    }
+}
+
 impl TryFrom<serde_json::Value> for MetNowcast {
     type Error = NowcastError;
 

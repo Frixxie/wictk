@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-version = "0.7.3"
+version = "0.20.1"
 edition = "2021"
 homepage = "https://github.com/Frixxie/wictk"
 
