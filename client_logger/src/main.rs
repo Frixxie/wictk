@@ -22,6 +22,6 @@ fn main() -> Result<()> {
     let client = Client::new();
     let url = format!("{}?location={}", opts.url, opts.location);
     let nowcast = get_nowcast(client, &url)?;
-    println!("{},{}", opts.location, nowcast);
+    println!("{}, {}", opts.location, nowcast);
     Ok(())
 }

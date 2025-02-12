@@ -20,7 +20,7 @@ impl Display for Nowcast {
         match self {
             Nowcast::Met(met_nowcast) => write!(
                 f,
-                "{},{},{},{}",
+                "{}°C, {}%, {} m/s, {}°",
                 met_nowcast.air_temperature,
                 met_nowcast.relative_humidity,
                 met_nowcast.wind_speed,
@@ -28,7 +28,7 @@ impl Display for Nowcast {
             ),
             Nowcast::OpenWeather(open_weather_nowcast) => write!(
                 f,
-                "{},{},{},{}",
+                "{}°C, {}%, {} m/s, {}°",
                 open_weather_nowcast.temp,
                 open_weather_nowcast.humidity,
                 open_weather_nowcast.wind_speed,
