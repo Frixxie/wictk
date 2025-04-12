@@ -3,12 +3,18 @@ use reqwest::blocking::Client;
 use structopt::StructOpt;
 use wictk_core::Nowcast;
 
+mod hem;
+
 #[derive(Debug, StructOpt)]
 struct Opts {
     #[structopt(short, long, default_value = "Trondheim")]
     location: String,
+
     #[structopt(short, long, default_value = "http://desktop:3010/api/met/nowcasts")]
-    url: String,
+    service_url: String,
+
+    #[structopt(short, long, default_value = "http://desktop:65534/")]
+    hemrs_url: String,
 }
 
 fn get_nowcast(client: Client, url: &str) -> Result<Nowcast> {
@@ -20,7 +26,7 @@ fn get_nowcast(client: Client, url: &str) -> Result<Nowcast> {
 fn main() -> Result<()> {
     let opts = Opts::from_args();
     let client = Client::new();
-    let url = format!("{}?location={}", opts.url, opts.location);
+    let url = format!("{}?location={}", opts.service_url, opts.location);
     let nowcast = get_nowcast(client, &url)?;
     println!("{}, {}", opts.location, nowcast);
     Ok(())
