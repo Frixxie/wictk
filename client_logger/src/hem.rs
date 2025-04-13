@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use wictk_core::Nowcast;
 
 #[derive(Debug)]
 pub struct SensorIds {
@@ -26,6 +27,23 @@ pub struct Device {
     id: i32,
     name: String,
     location: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct Measurement {
+    device: i32,
+    sensor: i32,
+    measurement: f32,
+}
+
+impl Measurement {
+    pub fn new(device: i32, sensor: i32, measurement: f32) -> Self {
+        Self {
+            device,
+            sensor,
+            measurement,
+        }
+    }
 }
 
 pub fn fetch_devices(client: &reqwest::blocking::Client, url: &str) -> Result<Vec<Device>> {
@@ -104,4 +122,67 @@ pub fn setup_device(
             setup_device(client, url, device_name, device_location)
         }
     }
+}
+
+pub fn store_nowcast(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    nowcast: &Nowcast,
+    device_id: &DeviceId,
+    sensor_ids: &SensorIds,
+) -> Result<()> {
+    match nowcast {
+        Nowcast::Met(met_nowcast) => {
+            info!("Logging MET");
+            let temperature = Measurement::new(
+                *device_id,
+                sensor_ids.temperature,
+                met_nowcast.air_temperature,
+            );
+            let humidity = Measurement::new(
+                *device_id,
+                sensor_ids.humidity,
+                met_nowcast.relative_humidity,
+            );
+            let wind_speed =
+                Measurement::new(*device_id, sensor_ids.wind_speed, met_nowcast.wind_speed);
+            let wind_deg = Measurement::new(
+                *device_id,
+                sensor_ids.wind_deg,
+                met_nowcast.wind_from_direction,
+            );
+            client.post(url).json(&temperature).send()?;
+            client.post(url).json(&humidity).send()?;
+            client.post(url).json(&wind_speed).send()?;
+            client.post(url).json(&wind_deg).send()?;
+        }
+        Nowcast::OpenWeather(open_weather_nowcast) => {
+            info!("Logging OpenWeather");
+            let temperature = Measurement::new(
+                *device_id,
+                sensor_ids.temperature,
+                open_weather_nowcast.temp,
+            );
+            let humidity = Measurement::new(
+                *device_id,
+                sensor_ids.humidity,
+                open_weather_nowcast.humidity as f32,
+            );
+            let wind_speed = Measurement::new(
+                *device_id,
+                sensor_ids.wind_speed,
+                open_weather_nowcast.wind_speed,
+            );
+            let wind_deg = Measurement::new(
+                *device_id,
+                sensor_ids.wind_deg,
+                open_weather_nowcast.wind_deg as f32,
+            );
+            client.post(url).json(&temperature).send()?;
+            client.post(url).json(&humidity).send()?;
+            client.post(url).json(&wind_speed).send()?;
+            client.post(url).json(&wind_deg).send()?;
+        }
+    }
+    Ok(())
 }
