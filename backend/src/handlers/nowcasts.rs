@@ -99,7 +99,7 @@ pub async fn nowcast_openweathermap(
 }
 
 #[instrument]
-pub async fn nowcast_simple(
+pub async fn nowcasts(
     app_state: State<AppState>,
     Query(location): Query<LocationQuery>,
 ) -> Result<Json<Vec<Nowcast>>, ApplicationError> {

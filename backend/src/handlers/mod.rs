@@ -8,7 +8,7 @@ use axum::{
 };
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
-use nowcasts::{nowcast_met, nowcast_openweathermap, nowcast_simple};
+use nowcasts::{nowcast_met, nowcast_openweathermap, nowcasts};
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tracing::{info, instrument};
@@ -58,7 +58,7 @@ pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> R
         .route("/alerts", get(alerts))
         .route("/owm/nowcasts", get(nowcast_openweathermap))
         .route("/met/nowcasts", get(nowcast_met))
-        .route("/nowcasts", get(nowcast_simple))
+        .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
         .with_state(app_state);
 
