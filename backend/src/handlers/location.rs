@@ -7,6 +7,7 @@ use axum::{
 use redact::Secret;
 use reqwest::StatusCode;
 use tokio::time::Instant;
+use tracing::debug;
 use wictk_core::{City, OpenWeatherMapLocation};
 
 use crate::{
@@ -101,5 +102,6 @@ pub async fn geocoding(
             StatusCode::INTERNAL_SERVER_ERROR,
         )
     })?;
+    debug!("Returning {:?} for {:?}", &res, &query);
     Ok(Json(res))
 }
