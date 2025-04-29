@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chrono = { version = "0.4.40", features = ["serde"] }
+chrono = { version = "0.4.41", features = ["serde"] }
+geo = { version = "0.30.0", features = ["serde", "use-serde"] }
 pretty_assertions = "1.4.1"
 redact = { version = "0.1.10", features = ["serde"] }
 reqwest = { version = "0.12.15", features = ["json"] }

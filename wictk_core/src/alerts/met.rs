@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use geo::Point;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -11,6 +12,12 @@ impl From<MetAlert> for Alert {
     fn from(met: MetAlert) -> Self {
         Alert::Met(met)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Area {
+    Single(Vec<Point>),
+    Multiple(Vec<Vec<Point>>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -27,12 +34,47 @@ pub struct MetAlert {
     pub certainty: String,
     pub event: String,
     pub duration: TimeDuration,
+    pub area: Area,
 }
 
 impl TryFrom<serde_json::Value> for MetAlert {
     type Error = AlertError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        dbg!(&value);
+        let area_type = value["geometry"]["type"]
+            .as_str()
+            .ok_or_else(|| AlertError::new("Failed to parse area type"))?;
+        let area = match area_type {
+            "Polygon" => {
+                let points: Vec<Point> = value["geometry"]["coordinates"]
+                    .as_array()
+                    .ok_or_else(|| AlertError::new("Failed to parse coordinates"))?
+                    .iter()
+                    .flat_map(|coords| {
+                        coords
+                            .as_array()
+                            .ok_or_else(|| AlertError::new("Failed to parse coordinates"))
+                            .map(|coords| {
+                                coords
+                                    .iter()
+                                    .map(|coord| {
+                                        let lon = coord[0].as_f64().unwrap_or(0.0);
+                                        let lat = coord[1].as_f64().unwrap_or(0.0);
+                                        Point::new(lon, lat)
+                                    })
+                                    .collect::<Vec<Point>>()
+                            })
+                    })
+                    .flatten()
+                    .collect();
+                Area::Single(points)
+            }
+            "MultiPolygon" => Area::Multiple(vec![vec![]]),
+            _ => {
+                return Err(AlertError::new("invalid area type"));
+            }
+        };
         let severity = match value["properties"]["severity"].as_str() {
             Some("Moderate") => Severity::Yellow,
             Some("Severe") => Severity::Orange,
@@ -76,6 +118,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
             certainty,
             event,
             duration,
+            area,
         })
     }
 }
