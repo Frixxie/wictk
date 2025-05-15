@@ -151,10 +151,10 @@ pub fn store_nowcast(
                 sensor_ids.wind_deg,
                 met_nowcast.wind_from_direction,
             );
-            client.post(url).json(&temperature).send()?;
-            client.post(url).json(&humidity).send()?;
-            client.post(url).json(&wind_speed).send()?;
-            client.post(url).json(&wind_deg).send()?;
+            client
+                .post(url)
+                .json(&vec![&temperature, &humidity, &wind_speed, &wind_deg])
+                .send()?;
         }
         Nowcast::OpenWeather(open_weather_nowcast) => {
             info!("Logging OpenWeather");
@@ -178,10 +178,10 @@ pub fn store_nowcast(
                 sensor_ids.wind_deg,
                 open_weather_nowcast.wind_deg as f32,
             );
-            client.post(url).json(&temperature).send()?;
-            client.post(url).json(&humidity).send()?;
-            client.post(url).json(&wind_speed).send()?;
-            client.post(url).json(&wind_deg).send()?;
+            client
+                .post(url)
+                .json(&vec![&temperature, &humidity, &wind_speed, &wind_deg])
+                .send()?;
         }
     }
     Ok(())
