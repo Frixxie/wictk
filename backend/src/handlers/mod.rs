@@ -6,6 +6,7 @@ use axum::{
     routing::get,
     Router,
 };
+use lightning::get_recent_lightning;
 use metrics::histogram;
 use metrics_exporter_prometheus::PrometheusHandle;
 use nowcasts::{nowcast_met, nowcast_openweathermap, nowcasts};
@@ -21,6 +22,7 @@ use self::{
 
 mod alerts;
 mod error;
+mod lightning;
 mod location;
 mod nowcasts;
 mod status;
@@ -60,6 +62,7 @@ pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> R
         .route("/met/nowcasts", get(nowcast_met))
         .route("/nowcasts", get(nowcasts))
         .route("/geocoding", get(geocoding))
+        .route("/recent_lightning", get(get_recent_lightning))
         .with_state(app_state);
 
     let status = Router::new()
