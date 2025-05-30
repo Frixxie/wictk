@@ -37,6 +37,12 @@ pub struct MetAlert {
     pub area: Area,
 }
 
+fn from_value_to_point(value: &Value) -> Point {
+    let lon = value[0].as_f64().unwrap_or(0.0);
+    let lat = value[1].as_f64().unwrap_or(0.0);
+    Point::new(lon, lat)
+}
+
 impl TryFrom<serde_json::Value> for MetAlert {
     type Error = AlertError;
 
@@ -57,11 +63,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
                             .map(|coords| {
                                 coords
                                     .iter()
-                                    .map(|coord| {
-                                        let lon = coord[0].as_f64().unwrap_or(0.0);
-                                        let lat = coord[1].as_f64().unwrap_or(0.0);
-                                        Point::new(lon, lat)
-                                    })
+                                    .map(from_value_to_point)
                                     .collect::<Vec<Point>>()
                             })
                     })
@@ -69,7 +71,25 @@ impl TryFrom<serde_json::Value> for MetAlert {
                     .collect();
                 Area::Single(points)
             }
-            "MultiPolygon" => Area::Multiple(vec![vec![]]),
+            "MultiPolygon" => {
+                let polygons: Vec<Vec<Point>> = value["geometry"]["coordinates"]
+                    .as_array()
+                    .ok_or_else(|| AlertError::new("Failed to parse coordinates"))?
+                    .iter()
+                    .map(|polygon| {
+                        polygon
+                            .as_array()
+                            .ok_or_else(|| AlertError::new("Failed to parse polygon"))
+                            .map(|coords| {
+                                coords
+                                    .iter()
+                                    .map(from_value_to_point)
+                                    .collect::<Vec<Point>>()
+                            })
+                    })
+                    .collect::<Result<Vec<Vec<Point>>, AlertError>>()?;
+                Area::Multiple(polygons)
+            }
             _ => {
                 return Err(AlertError::new("invalid area type"));
             }
