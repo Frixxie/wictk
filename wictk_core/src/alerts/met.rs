@@ -4,8 +4,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::locations::Coordinates;
-
 use super::{Alert, AlertError, Severity};
 
 impl From<MetAlert> for Alert {
@@ -143,7 +141,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
 }
 
 impl MetAlert {
-    pub async fn fetch(client: Client, _location: Coordinates) -> Result<Vec<Alert>, AlertError> {
+    pub async fn fetch(client: Client) -> Result<Vec<Alert>, AlertError> {
         let result: Vec<Alert> = client
             .get("https://api.met.no/weatherapi/metalerts/2.0/current.json")
             .send()
@@ -210,8 +208,7 @@ mod tests {
     #[tokio::test]
     async fn met_fetch() {
         let client = Client::new();
-        let location = Coordinates::new(15.4258, 68.3229);
-        let alerts = MetAlert::fetch(client, location).await;
+        let alerts = MetAlert::fetch(client).await;
         assert!(alerts.is_ok());
     }
 }

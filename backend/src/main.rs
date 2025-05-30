@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use wictk_core::{OpenWeatherMapLocation};
+use wictk_core::{Nowcast, OpenWeatherMapLocation};
 
 use crate::handlers::setup_router;
 
@@ -67,6 +67,7 @@ pub struct AppState {
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
     pub location_cache: Cache<String, OpenWeatherMapLocation>,
+    pub nowcast_cache: Cache<String, Nowcast>,
 }
 
 impl AppState {
@@ -74,10 +75,13 @@ impl AppState {
         Self {
             openweathermap_apikey: Secret::new(apikey),
             client,
-            alert_cache: CacheBuilder::new(30)
+            alert_cache: CacheBuilder::new(1)
                 .time_to_live(std::time::Duration::from_secs(60 * 5))
                 .build(),
-            location_cache: CacheBuilder::new(30)
+            location_cache: CacheBuilder::new(20)
+                .time_to_live(std::time::Duration::from_secs(60 * 5))
+                .build(),
+            nowcast_cache: CacheBuilder::new(20)
                 .time_to_live(std::time::Duration::from_secs(60 * 5))
                 .build(),
         }

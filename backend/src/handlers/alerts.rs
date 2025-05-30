@@ -1,34 +1,21 @@
 use crate::AppState;
-use axum::{
-    extract::{Query, State},
-    Json,
-};
+use axum::{extract::State, Json};
 use reqwest::StatusCode;
 use tracing::instrument;
-use wictk_core::{Alert, City, MetAlert};
+use wictk_core::{Alert, MetAlert};
 
-use super::{error::ApplicationError, location::lookup_location};
+use super::error::ApplicationError;
 
 pub type Alerts = Vec<Alert>;
 
 #[instrument]
 pub async fn alerts(
     State(app_state): State<AppState>,
-    Query(query): Query<City>,
 ) -> Result<Json<Vec<Alert>>, ApplicationError> {
-    let location = lookup_location(
-        &app_state.client,
-        &query.location,
-        &app_state.location_cache,
-        &app_state.openweathermap_apikey,
-    )
-    .await?;
-
-    let alerts = app_state.alert_cache.get(&location.name).await;
-    match alerts {
-        Some(alerts) => Ok(Json(alerts)),
+    match app_state.alert_cache.get("met_alerts").await {
+        Some(alerts) => return Ok(Json(alerts.clone())),
         None => {
-            let alerts = MetAlert::fetch(app_state.client.clone(), location.location)
+            let alerts = MetAlert::fetch(app_state.client.clone())
                 .await
                 .map_err(|err| {
                     tracing::error!("Error {}", err);
@@ -39,7 +26,7 @@ pub async fn alerts(
                 })?;
             app_state
                 .alert_cache
-                .insert(location.name.to_string(), alerts.clone())
+                .insert("met_alerts".to_string(), alerts.clone())
                 .await;
             Ok(Json(alerts))
         }
