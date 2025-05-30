@@ -41,7 +41,6 @@ impl TryFrom<serde_json::Value> for MetAlert {
     type Error = AlertError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        dbg!(&value);
         let area_type = value["geometry"]["type"]
             .as_str()
             .ok_or_else(|| AlertError::new("Failed to parse area type"))?;

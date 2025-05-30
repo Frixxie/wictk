@@ -1,12 +1,9 @@
-use std::time::Duration;
-
-use crate::{cache::TimedCache, AppState};
+use crate::AppState;
 use axum::{
     extract::{Query, State},
     Json,
 };
 use reqwest::StatusCode;
-use tokio::time::Instant;
 use tracing::instrument;
 use wictk_core::{Alert, City, MetAlert};
 
@@ -27,7 +24,7 @@ pub async fn alerts(
     )
     .await?;
 
-    let alerts = app_state.alert_cache.get(location.name.clone()).await;
+    let alerts = app_state.alert_cache.get(&location.name).await;
     match alerts {
         Some(alerts) => Ok(Json(alerts)),
         None => {
@@ -42,11 +39,7 @@ pub async fn alerts(
                 })?;
             app_state
                 .alert_cache
-                .set(
-                    location.name.to_string(),
-                    alerts.clone(),
-                    Instant::now() + Duration::from_secs(300),
-                )
+                .insert(location.name.to_string(), alerts.clone())
                 .await;
             Ok(Json(alerts))
         }

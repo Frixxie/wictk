@@ -2,16 +2,18 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use moka::future::Cache;
 use redact::Secret;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use tracing::instrument;
 use wictk_core::{
-    City, Coordinates, CoordinatesAsString, MetNowcast, Nowcast, OpenWeatherMapLocation, OpenWeatherNowcast,
+    City, Coordinates, CoordinatesAsString, MetNowcast, Nowcast, OpenWeatherMapLocation,
+    OpenWeatherNowcast,
 };
 
-use crate::{cache::Cache, AppState};
+use crate::AppState;
 
 use super::{error::ApplicationError, location::lookup_location};
 
@@ -25,7 +27,7 @@ pub enum LocationQuery {
 pub async fn find_location(
     location_query: LocationQuery,
     client: &Client,
-    location_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
+    location_cache: &Cache<String, OpenWeatherMapLocation>,
     apikey: &Secret<String>,
 ) -> anyhow::Result<Coordinates> {
     match location_query {

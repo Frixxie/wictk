@@ -1,17 +1,16 @@
-mod cache;
 mod handlers;
 
 use axum::serve;
 use handlers::Alerts;
 use metrics_exporter_prometheus::PrometheusBuilder;
+use moka::future::{Cache, CacheBuilder};
 use redact::Secret;
 use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use wictk_core::{Nowcast, OpenWeatherMapLocation};
+use wictk_core::{OpenWeatherMapLocation};
 
-use crate::cache::Cache;
 use crate::handlers::setup_router;
 
 #[derive(Debug, Clone)]
@@ -67,8 +66,7 @@ pub struct AppState {
     pub openweathermap_apikey: Secret<String>,
     pub client: reqwest::Client,
     pub alert_cache: Cache<String, Alerts>,
-    pub location_cache: Cache<String, Option<OpenWeatherMapLocation>>,
-    pub nowcast_cache: Cache<String, Option<Nowcast>>,
+    pub location_cache: Cache<String, OpenWeatherMapLocation>,
 }
 
 impl AppState {
@@ -76,9 +74,12 @@ impl AppState {
         Self {
             openweathermap_apikey: Secret::new(apikey),
             client,
-            alert_cache: Cache::new(),
-            location_cache: Cache::new(),
-            nowcast_cache: Cache::new(),
+            alert_cache: CacheBuilder::new(30)
+                .time_to_live(std::time::Duration::from_secs(60 * 5))
+                .build(),
+            location_cache: CacheBuilder::new(30)
+                .time_to_live(std::time::Duration::from_secs(60 * 5))
+                .build(),
         }
     }
 }

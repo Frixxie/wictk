@@ -1,86 +1,43 @@
-use std::time::Duration;
-
 use axum::{
     extract::{Query, State},
     Json,
 };
+use moka::future::Cache;
 use redact::Secret;
 use reqwest::StatusCode;
-use tokio::time::Instant;
 use tracing::debug;
 use wictk_core::{City, OpenWeatherMapLocation};
 
-use crate::{
-    cache::{Cache, TimedCache},
-    AppState,
-};
+use crate::AppState;
 
 use super::error::ApplicationError;
-
-async fn populate_location_cache(
-    location: &str,
-    locations: Option<Vec<OpenWeatherMapLocation>>,
-    loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
-) -> Option<OpenWeatherMapLocation> {
-    match locations {
-        Some(locs) => match locs.first() {
-            Some(loc) => {
-                loc_cache
-                    .set(
-                        location.to_string(),
-                        Some(loc.clone()),
-                        Instant::now() + Duration::from_secs(300),
-                    )
-                    .await;
-                Some(loc.clone())
-            }
-            None => {
-                loc_cache
-                    .set(
-                        location.to_string(),
-                        None,
-                        Instant::now() + Duration::from_secs(300),
-                    )
-                    .await;
-                None
-            }
-        },
-        None => {
-            loc_cache
-                .set(
-                    location.to_string(),
-                    None,
-                    Instant::now() + Duration::from_secs(300),
-                )
-                .await;
-            None
-        }
-    }
-}
 
 pub async fn lookup_location(
     client: &reqwest::Client,
     location: &str,
-    loc_cache: &Cache<String, Option<OpenWeatherMapLocation>>,
+    loc_cache: &Cache<String, OpenWeatherMapLocation>,
     apikey: &Secret<String>,
 ) -> Result<OpenWeatherMapLocation, ApplicationError> {
-    match loc_cache.get(location.to_string()).await {
-        Some(location) => match location {
-            Some(loc) => Ok(loc),
-            None => Err(ApplicationError::new(
-                "Not found in cache",
-                StatusCode::NOT_FOUND,
-            )),
-        },
+    match loc_cache.get(location).await {
+        Some(location) => Ok(location),
         None => {
-            let res = OpenWeatherMapLocation::fetch(client, location, apikey).await;
-            match populate_location_cache(location, res.clone(), loc_cache).await {
-                Some(loc) => Ok(loc),
-                None => Err(ApplicationError::new(
-                    "Location not found",
-                    StatusCode::NOT_FOUND,
-                )),
-            }
+            let locations = OpenWeatherMapLocation::fetch(client, location, apikey)
+                .await
+                .ok_or_else(|| {
+                    tracing::error!("Failed to get location data from OpenWeatherMap");
+                    ApplicationError::new(
+                        "Failed to get location data from OpenWeatherMap",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    )
+                })?;
+            let location = locations.first().cloned().ok_or_else(|| {
+                tracing::error!("No location found for {}", location);
+                ApplicationError::new("No location found", StatusCode::NOT_FOUND)
+            })?;
+            loc_cache
+                .insert(location.name.clone(), location.clone())
+                .await;
+            Ok(location)
         }
     }
 }
