@@ -11,14 +11,23 @@ use super::error::ApplicationError;
 pub async fn get_recent_lightning(
     app_state: State<AppState>,
 ) -> Result<Json<Vec<Lightning>>, ApplicationError> {
-    let lightning = Lightning::find_ligntning(
-        &app_state.client,
-        "https://www.yr.no/api/v0/lightning-events?fromHours=24",
-    )
-    .await
-    .map_err(|err| {
-        error!("Error fetching lightning data: {:?}", err);
-        ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
-    })?;
-    Ok(Json(lightning))
+    match app_state.lightning_cache.get("recent_lightning").await {
+        Some(lightning) => return Ok(Json(lightning.clone())),
+        None => {
+            let lightning = Lightning::find_ligntning(
+                &app_state.client,
+                "https://www.yr.no/api/v0/lightning-events?fromHours=24",
+            )
+            .await
+            .map_err(|err| {
+                error!("Error fetching lightning data: {:?}", err);
+                ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
+            })?;
+            app_state
+                .lightning_cache
+                .insert("recent_lightning".to_string(), lightning.clone())
+                .await;
+            Ok(Json(lightning))
+        }
+    }
 }

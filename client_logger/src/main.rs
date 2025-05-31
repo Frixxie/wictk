@@ -11,10 +11,10 @@ struct Opts {
     #[structopt(short, long, default_value = "Trondheim")]
     location: String,
 
-    #[structopt(short, long, default_value = "http://desktop:3010/api/nowcasts")]
+    #[structopt(short, long, default_value = "http://wictk.frikk.io/api/nowcasts")]
     service_url: String,
 
-    #[structopt(short, long, default_value = "http://desktop:65534/")]
+    #[structopt(short, long, default_value = "http://hemrs.frikk.io/")]
     hemrs_url: String,
 }
 

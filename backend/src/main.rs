@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use wictk_core::{Nowcast, OpenWeatherMapLocation};
+use wictk_core::{Lightning, Nowcast, OpenWeatherMapLocation};
 
 use crate::handlers::setup_router;
 
@@ -68,6 +68,7 @@ pub struct AppState {
     pub alert_cache: Cache<String, Alerts>,
     pub location_cache: Cache<String, OpenWeatherMapLocation>,
     pub nowcast_cache: Cache<String, Nowcast>,
+    pub lightning_cache: Cache<String, Vec<Lightning>>,
 }
 
 impl AppState {
@@ -82,6 +83,9 @@ impl AppState {
                 .time_to_live(std::time::Duration::from_secs(60 * 5))
                 .build(),
             nowcast_cache: CacheBuilder::new(20)
+                .time_to_live(std::time::Duration::from_secs(60 * 5))
+                .build(),
+            lightning_cache: CacheBuilder::new(1)
                 .time_to_live(std::time::Duration::from_secs(60 * 5))
                 .build(),
         }
