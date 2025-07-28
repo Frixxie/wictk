@@ -1,7 +1,8 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use wictk_core::Nowcast;
+use wictk_core::{Lightning, Nowcast};
 
 #[derive(Debug)]
 pub struct SensorIds {
@@ -9,6 +10,8 @@ pub struct SensorIds {
     pub humidity: i32,
     pub wind_speed: i32,
     pub wind_deg: i32,
+    pub lon: i32,
+    pub lat: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -31,6 +34,7 @@ pub struct Device {
 
 #[derive(Serialize, Debug)]
 pub struct Measurement {
+    timestamp: Option<DateTime<Utc>>,
     device: i32,
     sensor: i32,
     measurement: f32,
@@ -39,6 +43,16 @@ pub struct Measurement {
 impl Measurement {
     pub fn new(device: i32, sensor: i32, measurement: f32) -> Self {
         Self {
+            timestamp: None,
+            device,
+            sensor,
+            measurement,
+        }
+    }
+
+    pub fn new_with_ts(ts: DateTime<Utc>, device: i32, sensor: i32, measurement: f32) -> Self {
+        Self {
+            timestamp: Some(ts),
             device,
             sensor,
             measurement,
@@ -87,12 +101,16 @@ pub fn setup_sensors(client: &reqwest::blocking::Client, url: &str) -> Result<Se
     let humidity_id = setup_sensor(client, url, "humidity", "%")?;
     let wind_speed_id = setup_sensor(client, url, "wind_speed", "m/s")?;
     let wind_deg_id = setup_sensor(client, url, "wind_deg", "°")?;
+    let lon_id = setup_sensor(client, url, "lon", "°")?;
+    let lat_id = setup_sensor(client, url, "lat", "°")?;
 
     Ok(SensorIds {
         temperature: temperature_id,
         humidity: humidity_id,
         wind_speed: wind_speed_id,
         wind_deg: wind_deg_id,
+        lon: lon_id,
+        lat: lat_id,
     })
 }
 
@@ -184,5 +202,32 @@ pub fn store_nowcast(
                 .send()?;
         }
     }
+    Ok(())
+}
+
+pub fn store_lightning(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    device_id: &DeviceId,
+    lon_id: i32,
+    lat_id: i32,
+    lightning: &Lightning,
+) -> Result<()> {
+    let measurement_1 = Measurement::new_with_ts(
+        lightning.time,
+        *device_id,
+        lat_id,
+        lightning.location.x() as f32,
+    );
+    let measurement_2 = Measurement::new_with_ts(
+        lightning.time,
+        *device_id,
+        lon_id,
+        lightning.location.y() as f32,
+    );
+    client
+        .post(url)
+        .json(&[measurement_1, measurement_2])
+        .send()?;
     Ok(())
 }
