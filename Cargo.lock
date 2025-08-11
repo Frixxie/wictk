@@ -223,6 +223,7 @@ dependencies = [
  "anyhow",
  "axum",
  "chrono",
+ "geo 0.30.0",
  "metrics",
  "metrics-exporter-prometheus",
  "moka",

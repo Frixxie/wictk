@@ -21,3 +21,15 @@ HTTP 200
 
 GET http://{{url}}/api/nowcasts?location=Heimdal
 HTTP 200
+
+GET http://{{url}}/api/recent_lightning
+HTTP 200
+
+GET http://{{url}}/api/recent_lightning?location=Oslo&radius_km=100
+HTTP 200
+
+GET http://{{url}}/api/recent_lightning?lat=63.4308&lon=10.4034&radius_km=50
+HTTP 200
+
+GET http://{{url}}/api/recent_lightning?location=Trondheim
+HTTP 200
