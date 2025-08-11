@@ -41,15 +41,6 @@ pub struct Measurement {
 }
 
 impl Measurement {
-    pub fn new(device: i32, sensor: i32, measurement: f32) -> Self {
-        Self {
-            timestamp: None,
-            device,
-            sensor,
-            measurement,
-        }
-    }
-
     pub fn new_with_ts(ts: DateTime<Utc>, device: i32, sensor: i32, measurement: f32) -> Self {
         Self {
             timestamp: Some(ts),
@@ -151,20 +142,27 @@ pub fn store_nowcast(
 ) -> Result<()> {
     match nowcast {
         Nowcast::Met(met_nowcast) => {
-            info!("Logging MET");
-            let temperature = Measurement::new(
+            info!("Logging MET with timestamp: {}", met_nowcast.time);
+            let temperature = Measurement::new_with_ts(
+                met_nowcast.time,
                 *device_id,
                 sensor_ids.temperature,
                 met_nowcast.air_temperature,
             );
-            let humidity = Measurement::new(
+            let humidity = Measurement::new_with_ts(
+                met_nowcast.time,
                 *device_id,
                 sensor_ids.humidity,
                 met_nowcast.relative_humidity,
             );
-            let wind_speed =
-                Measurement::new(*device_id, sensor_ids.wind_speed, met_nowcast.wind_speed);
-            let wind_deg = Measurement::new(
+            let wind_speed = Measurement::new_with_ts(
+                met_nowcast.time,
+                *device_id,
+                sensor_ids.wind_speed,
+                met_nowcast.wind_speed,
+            );
+            let wind_deg = Measurement::new_with_ts(
+                met_nowcast.time,
                 *device_id,
                 sensor_ids.wind_deg,
                 met_nowcast.wind_from_direction,
@@ -175,23 +173,27 @@ pub fn store_nowcast(
                 .send()?;
         }
         Nowcast::OpenWeather(open_weather_nowcast) => {
-            info!("Logging OpenWeather");
-            let temperature = Measurement::new(
+            info!("Logging OpenWeather with timestamp: {}", open_weather_nowcast.dt);
+            let temperature = Measurement::new_with_ts(
+                open_weather_nowcast.dt,
                 *device_id,
                 sensor_ids.temperature,
                 open_weather_nowcast.temp,
             );
-            let humidity = Measurement::new(
+            let humidity = Measurement::new_with_ts(
+                open_weather_nowcast.dt,
                 *device_id,
                 sensor_ids.humidity,
                 open_weather_nowcast.humidity as f32,
             );
-            let wind_speed = Measurement::new(
+            let wind_speed = Measurement::new_with_ts(
+                open_weather_nowcast.dt,
                 *device_id,
                 sensor_ids.wind_speed,
                 open_weather_nowcast.wind_speed,
             );
-            let wind_deg = Measurement::new(
+            let wind_deg = Measurement::new_with_ts(
+                open_weather_nowcast.dt,
                 *device_id,
                 sensor_ids.wind_deg,
                 open_weather_nowcast.wind_deg as f32,
