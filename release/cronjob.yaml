@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wictk-client-logger
+  labels:
+    app: wictk-client-logger
+spec:
+  # Run every hour at minute 0
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: wictk-client-logger
+        spec:
+          containers:
+          - name: client-logger
+            image: ghcr.io/frixxie/wictk:0.8.1 # {"$imagepolicy": "flux-system:wictk-policy"}
+            command: ["/usr/local/bin/client_logger"]
+            args:
+              - "--location"
+              - "Trondheim"
+              - "--service-url"
+              - "http://wictk.frikk.io/"
+              - "--hemrs-url"
+              - "http://hemrs.frikk.io/"
+              - "--store-lightning"
+            # Add any environment variables if needed
+            # env:
+            # - name: EXAMPLE_ENV
+            #   value: "example_value"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          restartPolicy: OnFailure
+  # Keep the last 3 successful jobs and 1 failed job
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
