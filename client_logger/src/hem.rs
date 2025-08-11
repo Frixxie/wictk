@@ -1,7 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 use wictk_core::{Lightning, Nowcast};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,7 +70,7 @@ fn setup_sensor(
     let device = sensors.iter().find(|d| d.name == sensor_name);
     match device {
         Some(d) => {
-            info!("{:?}", d);
+            tracing::info!("{:?}", d);
             Ok(d.id)
         }
         None => {
@@ -81,7 +80,7 @@ fn setup_sensor(
                 unit: sensor_unit.to_string(),
             };
             let response = client.post(url).json(&new_device).send()?;
-            info!("{:?}", response);
+            tracing::info!("{:?}", response);
             setup_sensor(client, url, sensor_name, sensor_unit)
         }
     }
@@ -117,7 +116,7 @@ pub fn setup_device(
         .find(|d| d.name == device_name && d.location == device_location);
     match device {
         Some(d) => {
-            info!("{:?}", d);
+            tracing::info!("{:?}", d);
             Ok(d.id)
         }
         None => {
@@ -127,7 +126,7 @@ pub fn setup_device(
                 location: device_location.to_string(),
             };
             let response = client.post(url).json(&new_device).send()?;
-            info!("{:?}", response);
+            tracing::info!("{:?}", response);
             setup_device(client, url, device_name, device_location)
         }
     }
@@ -142,7 +141,7 @@ pub fn store_nowcast(
 ) -> Result<()> {
     match nowcast {
         Nowcast::Met(met_nowcast) => {
-            info!("Logging MET with timestamp: {}", met_nowcast.time);
+            tracing::info!("Logging MET with timestamp: {}", met_nowcast.time);
             let temperature = Measurement::new_with_ts(
                 met_nowcast.time,
                 *device_id,
@@ -174,7 +173,7 @@ pub fn store_nowcast(
                 .error_for_status()?;
         }
         Nowcast::OpenWeather(open_weather_nowcast) => {
-            info!("Logging OpenWeather with timestamp: {}", open_weather_nowcast.dt);
+            tracing::info!("Logging OpenWeather with timestamp: {}", open_weather_nowcast.dt);
             let temperature = Measurement::new_with_ts(
                 open_weather_nowcast.dt,
                 *device_id,

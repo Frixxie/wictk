@@ -2,6 +2,8 @@ use anyhow::Result;
 use hem::{setup_device, setup_sensors, store_nowcast};
 use reqwest::blocking::Client;
 use structopt::StructOpt;
+use tracing::{instrument, Level};
+use tracing_subscriber::FmtSubscriber;
 use wictk_core::{Lightning, Nowcast};
 
 use crate::hem::store_lightning;
@@ -9,6 +11,42 @@ use crate::hem::store_lightning;
 use rayon::prelude::*;
 
 mod hem;
+
+#[derive(Debug, Clone)]
+enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "trace" => Ok(LogLevel::Trace),
+            "debug" => Ok(LogLevel::Debug),
+            "info" => Ok(LogLevel::Info),
+            "warn" => Ok(LogLevel::Warn),
+            "error" => Ok(LogLevel::Error),
+            _ => Err("unknown log level".to_string()),
+        }
+    }
+}
+
+impl From<LogLevel> for Level {
+    fn from(log_level: LogLevel) -> Self {
+        match log_level {
+            LogLevel::Trace => Level::TRACE,
+            LogLevel::Debug => Level::DEBUG,
+            LogLevel::Info => Level::INFO,
+            LogLevel::Warn => Level::WARN,
+            LogLevel::Error => Level::ERROR,
+        }
+    }
+}
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -18,90 +56,293 @@ struct Opts {
     #[structopt(short, long, default_value = "http://wictk.frikk.io/")]
     service_url: String,
 
-    #[structopt(short, long, default_value = "http://hemrs.frikk.io/")]
+    #[structopt(short = "r", long, default_value = "http://hemrs.frikk.io/")]
     hemrs_url: String,
 
     #[structopt(long)]
     store_lightning: bool,
+
+    #[structopt(long, default_value = "info")]
+    log_level: LogLevel,
 }
 
+#[instrument(skip(client), fields(url = %url, location = %location))]
 pub fn get_nowcast(client: &Client, url: &str, location: &str) -> Result<Vec<Nowcast>> {
+    tracing::debug!("Fetching nowcast data");
+    let full_url = format!("{}api/nowcasts?location={}", url, location);
+    tracing::info!("Requesting nowcast data from: {}", full_url);
+    
     let response = client
-        .get(format!("{}api/nowcasts?location={}", url, location))
+        .get(&full_url)
         .send()?;
-    Ok(response.json()?)
+    
+    tracing::debug!("Response status: {}", response.status());
+    
+    if response.status().is_success() {
+        let nowcasts: Vec<Nowcast> = response.json()?;
+        tracing::info!("Successfully fetched {} nowcast records", nowcasts.len());
+        Ok(nowcasts)
+    } else {
+        tracing::error!("Failed to fetch nowcast data: HTTP {}", response.status());
+        Err(anyhow::anyhow!("HTTP error: {}", response.status()))
+    }
 }
 
+#[instrument(skip(client), fields(url = %url))]
 pub fn get_lightnings(client: &Client, url: &str) -> Result<Vec<Lightning>> {
-    let response = client.get(format!("{}api/recent_lightning", url)).send()?;
-    Ok(response.json()?)
+    tracing::debug!("Fetching lightning data");
+    let full_url = format!("{}api/recent_lightning", url);
+    tracing::info!("Requesting lightning data from: {}", full_url);
+    
+    let response = client.get(&full_url).send()?;
+    
+    tracing::debug!("Response status: {}", response.status());
+    
+    if response.status().is_success() {
+        let lightnings: Vec<Lightning> = response.json()?;
+        tracing::info!("Successfully fetched {} lightning records", lightnings.len());
+        Ok(lightnings)
+    } else {
+        tracing::error!("Failed to fetch lightning data: HTTP {}", response.status());
+        Err(anyhow::anyhow!("HTTP error: {}", response.status()))
+    }
 }
 
 fn main() -> Result<()> {
     let opts = Opts::from_args();
+
+    let level: Level = opts.log_level.clone().into();
+
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(level)
+        .json()
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+    
+    tracing::info!("Starting client logger with configuration: {:?}", opts);
+    
     let client = Client::new();
-    let nowcasts = get_nowcast(&client, &opts.service_url, &opts.location)?;
-    let sensors = setup_sensors(&client, &format!("{}api/sensors", &opts.hemrs_url))?;
-    let device_met = setup_device(
+    tracing::info!("HTTP client initialized successfully");
+    
+    // Fetch nowcast data
+    let start_time = std::time::Instant::now();
+    let nowcasts = match get_nowcast(&client, &opts.service_url, &opts.location) {
+        Ok(data) => {
+            let elapsed = start_time.elapsed();
+            tracing::info!("Successfully retrieved nowcast data in {:.2}s", elapsed.as_secs_f64());
+            data
+        }
+        Err(e) => {
+            tracing::error!("Failed to fetch nowcast data: {}", e);
+            return Err(e);
+        }
+    };
+    
+    if nowcasts.is_empty() {
+        tracing::warn!("No nowcast data available for location: {}", opts.location);
+        return Ok(());
+    }
+    
+    // Setup sensors and devices
+    let setup_start = std::time::Instant::now();
+    let sensors = match setup_sensors(&client, &format!("{}api/sensors", &opts.hemrs_url)) {
+        Ok(sensors) => {
+            tracing::info!("Sensors setup completed successfully");
+            sensors
+        }
+        Err(e) => {
+            tracing::error!("Failed to setup sensors: {}", e);
+            return Err(e);
+        }
+    };
+    
+    let device_met = match setup_device(
         &client,
         &format!("{}api/devices", &opts.hemrs_url),
         "wictk_met",
         &opts.location,
-    )?;
-    let device_opm = setup_device(
+    ) {
+        Ok(device_id) => {
+            tracing::info!("MET device setup completed (ID: {})", device_id);
+            device_id
+        }
+        Err(e) => {
+            tracing::error!("Failed to setup MET device: {}", e);
+            return Err(e);
+        }
+    };
+    
+    let device_opm = match setup_device(
         &client,
         &format!("{}api/devices", &opts.hemrs_url),
         "wictk_opm",
         &opts.location,
-    )?;
-    let device_lightning = setup_device(
+    ) {
+        Ok(device_id) => {
+            tracing::info!("OpenWeatherMap device setup completed (ID: {})", device_id);
+            device_id
+        }
+        Err(e) => {
+            tracing::error!("Failed to setup OpenWeatherMap device: {}", e);
+            return Err(e);
+        }
+    };
+    
+    let device_lightning = match setup_device(
         &client,
         &format!("{}api/devices", &opts.hemrs_url),
         "wictk_lightning",
         "Mobile",
-    )?;
-    println!("{}, {}", opts.location, nowcasts.first().unwrap());
-    for nowcast in nowcasts {
-        match nowcast.clone() {
-            Nowcast::Met(_) => store_nowcast(
-                &client,
-                &format!("{}api/measurements", opts.hemrs_url),
-                &nowcast,
-                &device_met,
-                &sensors,
-            )?,
-            Nowcast::OpenWeather(_) => store_nowcast(
-                &client,
-                &format!("{}api/measurements", opts.hemrs_url),
-                &nowcast,
-                &device_opm,
-                &sensors,
-            )?,
+    ) {
+        Ok(device_id) => {
+            tracing::info!("Lightning device setup completed (ID: {})", device_id);
+            device_id
+        }
+        Err(e) => {
+            tracing::error!("Failed to setup lightning device: {}", e);
+            return Err(e);
+        }
+    };
+    
+    let setup_elapsed = setup_start.elapsed();
+    tracing::info!("Device and sensor setup completed in {:.2}s", setup_elapsed.as_secs_f64());
+    
+    // Log the first nowcast for debugging
+    if let Some(first_nowcast) = nowcasts.first() {
+        tracing::info!("First nowcast for {}: {}", opts.location, first_nowcast);
+    }
+    
+    // Store nowcast data
+    let storage_start = std::time::Instant::now();
+    let mut met_count = 0;
+    let mut opm_count = 0;
+    
+    for (index, nowcast) in nowcasts.iter().enumerate() {
+        tracing::debug!("Processing nowcast {} of {}", index + 1, nowcasts.len());
+        
+        let result = match nowcast.clone() {
+            Nowcast::Met(_) => {
+                met_count += 1;
+                tracing::debug!("Storing MET nowcast data");
+                store_nowcast(
+                    &client,
+                    &format!("{}api/measurements", opts.hemrs_url),
+                    &nowcast,
+                    &device_met,
+                    &sensors,
+                )
+            }
+            Nowcast::OpenWeather(_) => {
+                opm_count += 1;
+                tracing::debug!("Storing OpenWeatherMap nowcast data");
+                store_nowcast(
+                    &client,
+                    &format!("{}api/measurements", opts.hemrs_url),
+                    &nowcast,
+                    &device_opm,
+                    &sensors,
+                )
+            }
+        };
+        
+        match result {
+            Ok(()) => tracing::debug!("Successfully stored nowcast {}", index + 1),
+            Err(e) => {
+                tracing::error!("Failed to store nowcast {}: {}", index + 1, e);
+                return Err(e);
+            }
         }
     }
+    
+    let storage_elapsed = storage_start.elapsed();
+    tracing::info!("Nowcast storage completed in {:.2}s - MET: {}, OpenWeatherMap: {}", 
+          storage_elapsed.as_secs_f64(), met_count, opm_count);
+    
+    // Handle lightning data if requested
     if !opts.store_lightning {
+        tracing::info!("Lightning storage disabled - skipping lightning data");
         return Ok(());
     }
+    
     let now = chrono::Utc::now();
-    let lightnings = get_lightnings(&client, &opts.service_url)?;
-    lightnings
+    tracing::info!("Current time for lightning filtering: {}", now);
+    
+    let lightnings = match get_lightnings(&client, &opts.service_url) {
+        Ok(data) => {
+            tracing::info!("Successfully retrieved lightning data");
+            data
+        }
+        Err(e) => {
+            tracing::error!("Failed to fetch lightning data: {}", e);
+            return Err(e);
+        }
+    };
+    
+    if lightnings.is_empty() {
+        tracing::info!("No lightning data available");
+        return Ok(());
+    }
+    
+    let recent_lightnings: Vec<&Lightning> = lightnings
         .par_iter()
         .filter(|lightning| {
             // Filter out lightnings that are too old (older than 10 minutes)
             let lightning_time = lightning.time.with_timezone(&chrono::Utc);
-            now.signed_duration_since(lightning_time).num_minutes() < 10
+            let age_minutes = now.signed_duration_since(lightning_time).num_minutes();
+            let is_recent = age_minutes < 10;
+            
+            if !is_recent {
+                tracing::debug!("Filtering out old lightning: {} minutes old", age_minutes);
+            }
+            
+            is_recent
         })
-        .for_each(|lightning| {
-            store_lightning(
-                &client,
-                &format!("{}api/measurements", opts.hemrs_url),
-                &device_lightning,
-                sensors.lon,
-                sensors.lat,
-                lightning,
-            )
-            .unwrap();
-        });
+        .collect();
+    
+    tracing::info!("Filtered {} recent lightnings from {} total (within 10 minutes)", 
+          recent_lightnings.len(), lightnings.len());
+    
+    if recent_lightnings.is_empty() {
+        tracing::info!("No recent lightning data to store");
+        return Ok(());
+    }
+    
+    tracing::info!("Storing {} recent lightning records", recent_lightnings.len());
+    
+    // Store lightning data sequentially to get proper error counting
+    let mut stored_count = 0;
+    let mut error_count = 0;
+    
+    for (index, lightning) in recent_lightnings.iter().enumerate() {
+        tracing::debug!("Storing lightning {} of {}, time: {}", index + 1, recent_lightnings.len(), lightning.time);
+        match store_lightning(
+            &client,
+            &format!("{}api/measurements", opts.hemrs_url),
+            &device_lightning,
+            sensors.lon,
+            sensors.lat,
+            lightning,
+        ) {
+            Ok(()) => {
+                stored_count += 1;
+                tracing::debug!("Successfully stored lightning {}", index + 1);
+            }
+            Err(e) => {
+                error_count += 1;
+                tracing::error!("Failed to store lightning {}: {}", index + 1, e);
+            }
+        }
+    }
+    
+    if error_count > 0 {
+        tracing::warn!("Lightning storage completed with errors - Stored: {}, Errors: {}", 
+              stored_count, error_count);
+    } else {
+        tracing::info!("Lightning storage completed successfully - Stored: {} records", stored_count);
+    }
+    
+    tracing::info!("=== CLIENT LOGGER COMPLETED SUCCESSFULLY ===");
     Ok(())
 }
 
