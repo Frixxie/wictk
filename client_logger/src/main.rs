@@ -69,7 +69,7 @@ struct Opts {
 #[instrument(skip(client), fields(url = %url, location = %location))]
 pub fn get_nowcast(client: &Client, url: &str, location: &str) -> Result<Vec<Nowcast>> {
     tracing::debug!("Fetching nowcast data");
-    let full_url = format!("{}api/nowcasts?location={}", url, location);
+    let full_url = format!("{url}api/nowcasts?location={location}");
     tracing::info!("Requesting nowcast data from: {}", full_url);
 
     let response = client.get(&full_url).send()?;
@@ -89,7 +89,7 @@ pub fn get_nowcast(client: &Client, url: &str, location: &str) -> Result<Vec<Now
 #[instrument(skip(client), fields(url = %url))]
 pub fn get_lightnings(client: &Client, url: &str) -> Result<Vec<Lightning>> {
     tracing::debug!("Fetching lightning data");
-    let full_url = format!("{}api/recent_lightning", url);
+    let full_url = format!("{url}api/recent_lightning");
     tracing::info!("Requesting lightning data from: {}", full_url);
 
     let response = client.get(&full_url).send()?;
@@ -235,7 +235,7 @@ fn main() -> Result<()> {
                 store_nowcast(
                     &client,
                     &format!("{}api/measurements", opts.hemrs_url),
-                    &nowcast,
+                    nowcast,
                     &device_met,
                     &sensors,
                 )
@@ -246,7 +246,7 @@ fn main() -> Result<()> {
                 store_nowcast(
                     &client,
                     &format!("{}api/measurements", opts.hemrs_url),
-                    &nowcast,
+                    nowcast,
                     &device_opm,
                     &sensors,
                 )
@@ -547,7 +547,7 @@ mod tests {
         assert_eq!(opts.location, "Trondheim");
         assert_eq!(opts.service_url, "http://wictk.frikk.io/");
         assert_eq!(opts.hemrs_url, "http://hemrs.frikk.io/");
-        assert_eq!(opts.store_lightning, false);
+        assert!(!opts.store_lightning);
     }
 
     #[test]
@@ -568,7 +568,7 @@ mod tests {
         assert_eq!(opts.location, "Oslo");
         assert_eq!(opts.service_url, "http://custom.service.url/");
         assert_eq!(opts.hemrs_url, "http://custom.hemrs.url/");
-        assert_eq!(opts.store_lightning, true);
+        assert!(opts.store_lightning);
     }
 
     #[test]

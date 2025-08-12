@@ -65,7 +65,7 @@ pub async fn nowcast_met(
 
     match app_state
         .nowcast_cache
-        .get(&format!("met_{}", location.to_string()))
+        .get(&format!("met_{location}"))
         .await
     {
         Some(nowcast) => return Ok(Json(nowcast)),
@@ -78,7 +78,7 @@ pub async fn nowcast_met(
                 })?;
             app_state
                 .nowcast_cache
-                .insert(format!("met_{}", location.to_string()), nowcast.clone())
+                .insert(format!("met_{location}"), nowcast.clone())
                 .await;
             Ok(Json(nowcast))
         }
@@ -104,7 +104,7 @@ pub async fn nowcast_openweathermap(
 
     match app_state
         .nowcast_cache
-        .get(&format!("open_{}", location.to_string()))
+        .get(&format!("open_{location}"))
         .await
     {
         Some(nowcast) => return Ok(Json(nowcast)),
@@ -121,7 +121,7 @@ pub async fn nowcast_openweathermap(
             })?;
             app_state
                 .nowcast_cache
-                .insert(format!("open_{}", location.to_string()), nowcast.clone())
+                .insert(format!("open_{location}"), nowcast.clone())
                 .await;
             Ok(Json(nowcast))
         }
@@ -147,7 +147,7 @@ pub async fn nowcasts(
 
     let open_nowcast = match app_state
         .nowcast_cache
-        .get(&format!("open_{}", location.to_string()))
+        .get(&format!("open_{location}"))
         .await
     {
         Some(nowcast) => nowcast,
@@ -165,7 +165,7 @@ pub async fn nowcasts(
             app_state
                 .nowcast_cache
                 .insert(
-                    format!("open_{}", location.to_string()),
+                    format!("open_{location}"),
                     open_nowcast.clone(),
                 )
                 .await;
@@ -175,7 +175,7 @@ pub async fn nowcasts(
 
     let met_nowcast = match app_state
         .nowcast_cache
-        .get(&format!("met_{}", location.to_string()))
+        .get(&format!("met_{location}"))
         .await
     {
         Some(nowcast) => nowcast,
@@ -188,7 +188,7 @@ pub async fn nowcasts(
                 })?;
             app_state
                 .nowcast_cache
-                .insert(format!("met_{}", location.to_string()), met_nowcast.clone())
+                .insert(format!("met_{location}"), met_nowcast.clone())
                 .await;
             met_nowcast
         }

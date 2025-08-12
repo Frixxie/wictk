@@ -680,7 +680,7 @@ mod tests {
 
         let result = store_nowcast(&client, &server.url(), &nowcast, &device_id, &sensor_ids);
         // HTTP 500 should result in an error
-        assert!(result.is_err(), "Expected error for HTTP 500 but got: {:?}", result);
+        assert!(result.is_err(), "Expected error for HTTP 500 but got: {result:?}");
         mock.assert();
     }
 
@@ -708,7 +708,7 @@ mod tests {
 
         let result = store_lightning(&client, &server.url(), &device_id, lon_id, lat_id, &lightning);
         // HTTP 500 should result in an error
-        assert!(result.is_err(), "Expected error for HTTP 500 but got: {:?}", result);
+        assert!(result.is_err(), "Expected error for HTTP 500 but got: {result:?}");
         mock.assert();
     }
 }

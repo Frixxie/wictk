@@ -32,13 +32,13 @@ impl Lightning {
 
         let data = response_string.trim_matches('"');
 
-        let lightning_data: Value = serde_json::from_str(&data)
+        let lightning_data: Value = serde_json::from_str(data)
             .map_err(|e| anyhow::anyhow!("Failed to parse lightning data: {}", e))?;
 
         let lightning_data = lightning_data
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("Expected an array of lightning events"))?
-            .into_iter()
+            .iter()
             .filter_map(|event| {
                 // event is on the form: [timestamp, latitude, longitude, magic_value]
                 match event.as_array() {
