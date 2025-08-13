@@ -327,48 +327,38 @@ fn main() -> Result<()> {
         recent_lightnings.len()
     );
 
-    // Store lightning data sequentially to get proper error counting
-    let mut stored_count = 0;
-    let mut error_count = 0;
-
-    for (index, lightning) in recent_lightnings.iter().enumerate() {
-        tracing::debug!(
-            "Storing lightning {} of {}, time: {}",
-            index + 1,
-            recent_lightnings.len(),
-            lightning.time
-        );
-        match store_lightning(
-            &client,
-            &format!("{}api/measurements", opts.hemrs_url),
-            &device_lightning,
-            sensors.lon,
-            sensors.lat,
-            lightning,
-        ) {
-            Ok(()) => {
-                stored_count += 1;
-                tracing::debug!("Successfully stored lightning {}", index + 1);
+    // Store lightning data in parallel using rayon
+    recent_lightnings
+        .par_iter()
+        .enumerate()
+        .for_each(|(index, lightning)| {
+            tracing::debug!(
+                "Storing lightning {} of {}, time: {}",
+                index + 1,
+                recent_lightnings.len(),
+                lightning.time
+            );
+            match store_lightning(
+                &client,
+                &format!("{}api/measurements", opts.hemrs_url),
+                &device_lightning,
+                sensors.lon,
+                sensors.lat,
+                lightning,
+            ) {
+                Ok(()) => {
+                    tracing::debug!("Successfully stored lightning {}", index + 1);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to store lightning {}: {}", index + 1, e);
+                }
             }
-            Err(e) => {
-                error_count += 1;
-                tracing::error!("Failed to store lightning {}: {}", index + 1, e);
-            }
-        }
-    }
+        });
 
-    if error_count > 0 {
-        tracing::warn!(
-            "Lightning storage completed with errors - Stored: {}, Errors: {}",
-            stored_count,
-            error_count
-        );
-    } else {
-        tracing::info!(
-            "Lightning storage completed successfully - Stored: {} records",
-            stored_count
-        );
-    }
+    tracing::info!(
+        "Lightning storage completed - Processed {} records in parallel",
+        recent_lightnings.len()
+    );
 
     Ok(())
 }
