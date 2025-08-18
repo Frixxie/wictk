@@ -41,7 +41,7 @@ fn from_value_to_point(value: &Value) -> Point {
     Point::new(lon, lat)
 }
 
-fn polygon_to_points(polygon: &Vec<Value>) -> Vec<Point> {
+fn polygon_to_points(polygon: &[Value]) -> Vec<Point> {
     polygon
         .iter()
         .flat_map(|coords| {
@@ -85,7 +85,7 @@ impl TryFrom<serde_json::Value> for MetAlert {
                         polygon
                             .as_array()
                             .ok_or_else(|| AlertError::new("Failed to parse polygon"))
-                            .map(polygon_to_points)
+                            .map(|polygon| polygon_to_points(polygon))
                     })
                     .collect::<Result<Vec<Vec<Point>>, AlertError>>()?;
                 Area::Multiple(polygons)
@@ -238,19 +238,22 @@ mod tests {
     #[tokio::test]
     async fn met_fetch() {
         let client = Client::new();
-        
+
         // First check if we can reach the API
         let ping_result = client
             .head("https://api.met.no/weatherapi/metalerts/2.0/current.json")
             .send()
             .await;
-        
+
         if ping_result.is_err() {
             // Skip test if API is unreachable
-            eprintln!("Skipping met_fetch test - API unreachable: {:?}", ping_result.unwrap_err());
+            eprintln!(
+                "Skipping met_fetch test - API unreachable: {:?}",
+                ping_result.unwrap_err()
+            );
             return;
         }
-        
+
         let alerts = MetAlert::fetch(client).await;
         match &alerts {
             Ok(_) => {
