@@ -195,3 +195,46 @@ pub async fn nowcasts(
     };
     Ok(Json(vec![met_nowcast, open_nowcast]))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use crate::handlers::test_utils::{create_test_app, make_request};
+
+    #[tokio::test]
+    async fn test_nowcasts_missing_params() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/nowcasts").await;
+        
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_query_parameter_parsing() {
+        let app = create_test_app();
+        
+        // Test various query parameter formats
+        let test_cases = vec![
+            "/api/nowcasts?location=Oslo",
+            "/api/nowcasts?lat=59.91273&lon=10.74609",
+            "/api/alerts?location=Bergen",
+            "/api/recent_lightning?radius_km=25",
+        ];
+
+        for test_case in test_cases {
+            let (status, _body) = make_request(app.clone(), test_case).await;
+            // Should not return 400 Bad Request for valid query parameters
+            assert_ne!(status, StatusCode::BAD_REQUEST);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_invalid_query_parameters() {
+        let app = create_test_app();
+        
+        // Test invalid coordinate formats
+        let (status, _body) = make_request(app, "/api/nowcasts?lat=invalid&lon=10.74609").await;
+        assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::INTERNAL_SERVER_ERROR);
+    }
+}

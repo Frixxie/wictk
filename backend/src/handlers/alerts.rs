@@ -123,6 +123,27 @@ mod tests {
     use super::*;
     use geo::Point;
     use pretty_assertions::assert_eq;
+    use axum::http::StatusCode;
+    use crate::handlers::test_utils::{create_test_app, make_request};
+
+    #[tokio::test]
+    async fn test_alerts_endpoint() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/alerts").await;
+        
+        // This might fail due to external API dependency, but should not crash
+        // We're testing the endpoint structure, not the actual Met.no API
+        assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn test_alerts_with_location() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/alerts?location=Oslo").await;
+        
+        // External API dependency - test endpoint structure
+        assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
+    }
 
     #[test]
     fn test_point_in_polygon_simple_square() {

@@ -27,6 +27,9 @@ mod location;
 mod nowcasts;
 mod status;
 
+#[cfg(test)]
+mod test_utils;
+
 pub use alerts::Alerts;
 
 #[instrument]
@@ -86,8 +89,52 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
 mod tests {
     use axum::{extract::Query, http::Uri};
     use wictk_core::{City, CoordinatesAsString};
+    use axum::http::StatusCode;
+    use crate::handlers::test_utils::{create_test_app, make_request, make_request_with_method};
 
     use crate::handlers::nowcasts::LocationQuery;
+
+    #[tokio::test]
+    async fn test_metrics_endpoint() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/metrics").await;
+        
+        assert_eq!(status, StatusCode::OK);
+        
+        // Metrics endpoint may return empty if no metrics have been recorded yet
+        // The important thing is that it responds with 200 OK
+    }
+
+    #[tokio::test]
+    async fn test_invalid_endpoint() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/invalid").await;
+        
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_invalid_method() {
+        let app = create_test_app();
+        let (status, _body) = make_request_with_method(app, "POST", "/status/ping").await;
+        
+        assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    #[tokio::test]
+    async fn test_endpoint_timing_metrics() {
+        let app = create_test_app();
+        
+        // Make a request to generate metrics
+        let _ = make_request(app.clone(), "/status/ping").await;
+        
+        // Check that metrics are generated
+        let (status, body) = make_request(app, "/metrics").await;
+        assert_eq!(status, StatusCode::OK);
+        
+        let body_str = String::from_utf8(body).unwrap();
+        assert!(body_str.contains("handler"));
+    }
 
     #[test]
     fn parse_location() {

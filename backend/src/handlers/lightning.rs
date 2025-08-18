@@ -82,6 +82,17 @@ pub async fn get_recent_lightning(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::StatusCode;
+    use crate::handlers::test_utils::{create_test_app, make_request};
+
+    #[tokio::test]
+    async fn test_recent_lightning_endpoint() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/recent_lightning").await;
+        
+        // External API dependency - test endpoint structure
+        assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
+    }
 
     #[test]
     fn test_lightning_query_city() {

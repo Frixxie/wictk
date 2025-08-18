@@ -62,3 +62,18 @@ pub async fn geocoding(
     debug!("Returning {:?} for {:?}", &res, &query);
     Ok(Json(res))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use crate::handlers::test_utils::{create_test_app, make_request};
+
+    #[tokio::test]
+    async fn test_geocoding_missing_params() {
+        let app = create_test_app();
+        let (status, _body) = make_request(app, "/api/geocoding").await;
+        
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+}
