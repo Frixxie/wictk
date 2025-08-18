@@ -1,6 +1,6 @@
 mod met;
 
-pub use met::MetAlert;
+pub use met::{MetAlert, Area};
 
 use serde::{Deserialize, Serialize};
 
