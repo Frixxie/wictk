@@ -264,10 +264,11 @@ fn main() -> Result<()> {
 
     let storage_elapsed = storage_start.elapsed();
     tracing::info!(
-        "Nowcast storage completed in {:.2}s - MET: {}, OpenWeatherMap: {}",
-        storage_elapsed.as_secs_f64(),
+        "Stored {} nowcasts ({} MET, {} OpenWeatherMap) in {:.2}s",
+        nowcasts.len(),
         met_count,
-        opm_count
+        opm_count,
+        storage_elapsed.as_secs_f64()
     );
 
     // Handle lightning data if requested
@@ -356,7 +357,7 @@ fn main() -> Result<()> {
         });
 
     tracing::info!(
-        "Lightning storage completed - Processed {} records in parallel",
+        "Stored {} lightning records",
         recent_lightnings.len()
     );
 
