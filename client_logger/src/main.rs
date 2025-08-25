@@ -1,16 +1,19 @@
 use anyhow::Result;
-use hem::{setup_device, setup_sensors, store_nowcast};
+use device::setup_device;
+use sensor::setup_sensors;
+use storage::{store_met_nowcast, store_openweather_nowcast, store_lightning};
 use reqwest::blocking::Client;
 use structopt::StructOpt;
 use tracing::{instrument, Level};
 use tracing_subscriber::FmtSubscriber;
 use wictk_core::{Lightning, Nowcast};
 
-use crate::hem::store_lightning;
-
 use rayon::prelude::*;
 
-mod hem;
+mod device;
+mod sensor;
+mod measurement;
+mod storage;
 
 #[derive(Debug, Clone)]
 enum LogLevel {
@@ -229,24 +232,24 @@ fn main() -> Result<()> {
         tracing::debug!("Processing nowcast {} of {}", index + 1, nowcasts.len());
 
         let result = match nowcast.clone() {
-            Nowcast::Met(_) => {
+            Nowcast::Met(met_nowcast) => {
                 met_count += 1;
                 tracing::debug!("Storing MET nowcast data");
-                store_nowcast(
+                store_met_nowcast(
                     &client,
                     &format!("{}api/measurements", opts.hemrs_url),
-                    nowcast,
+                    &met_nowcast,
                     &device_met,
                     &sensors,
                 )
             }
-            Nowcast::OpenWeather(_) => {
+            Nowcast::OpenWeather(openweather_nowcast) => {
                 opm_count += 1;
                 tracing::debug!("Storing OpenWeatherMap nowcast data");
-                store_nowcast(
+                store_openweather_nowcast(
                     &client,
                     &format!("{}api/measurements", opts.hemrs_url),
-                    nowcast,
+                    &openweather_nowcast,
                     &device_opm,
                     &sensors,
                 )
