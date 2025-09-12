@@ -9,8 +9,8 @@ homepage = "https://github.com/Frixxie/wictk"
 [dependencies]
 anyhow = "1.0.99"
 axum = { version = "0.8.4", features = ["json", "macros"] }
-chrono = { version = "0.4.41", features = ["serde"] }
-geo = { version = "0.30.0", features = ["serde", "use-serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
+geo = { version = "0.31.0", features = ["serde", "use-serde"] }
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.2"
 moka = { version = "0.12.10", features = ["future"] }
@@ -23,7 +23,7 @@ tokio = { version = "1.47.1", features = ["full", "tracing"] }
 tower = { version = "0.5.2", features = ["full", "tracing"] }
 tower-http = "0.6.6"
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["json"] }
+tracing-subscriber = { version = "0.3.20", features = ["json"] }
 wictk_core = {path = "../wictk_core"}
 
 [dev-dependencies]
