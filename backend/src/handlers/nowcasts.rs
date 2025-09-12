@@ -195,7 +195,6 @@ pub async fn nowcasts(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::handlers::test_utils::{create_test_app, make_request};
     use axum::http::StatusCode;
 

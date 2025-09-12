@@ -10,7 +10,6 @@ pub async fn health() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::http::StatusCode;
     use crate::handlers::test_utils::{create_test_app, make_request};
 

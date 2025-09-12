@@ -45,9 +45,15 @@ pub fn fetch_measurements(
     if response.status().is_success() {
         let measurement: Measurement = response.json()?;
         tracing::info!(
-            "Successfully fetched measurement for device {} sensor {}",
+            "Successfully fetched measurement for device {} sensor {}: value={} {} at {} (device: {}, location: {}, sensor: {})",
             device_id,
-            sensor_id
+            sensor_id,
+            measurement.value,
+            measurement.unit,
+            measurement.timestamp,
+            measurement.device_name,
+            measurement.device_location,
+            measurement.sensor_name
         );
         Ok(measurement)
     } else {
