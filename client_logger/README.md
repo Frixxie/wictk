@@ -16,20 +16,20 @@ The client logger fetches weather data (nowcasts) and lightning data from the WI
 ### Basic Usage
 
 ```bash
-# Run with default settings (Trondheim, info-level logging)
-cargo run
+# Run with single location
+cargo run -- --locations "Trondheim"
 
-# Run with custom location
-cargo run -- --location "Oslo"
+# Run with multiple locations
+cargo run -- --locations "Trondheim" --locations "Oslo" --locations "Bergen"
 
 # Include lightning data storage
-cargo run -- --store-lightning
+cargo run -- --locations "Trondheim" --store-lightning
 
 # Use custom service URLs
-cargo run -- --service-url "http://localhost:8080/" --hemrs-url "http://localhost:8081/"
+cargo run -- --locations "Trondheim" --service-url "http://localhost:8080/" --hemrs-url "http://localhost:8081/"
 
 # Set log level (matches backend behavior)
-cargo run -- --log-level debug
+cargo run -- --locations "Trondheim" --log-level debug
 ```
 
 ### Logging Configuration
@@ -48,16 +48,16 @@ The client logger uses structured JSON logging identical to the backend's format
 
 ```bash
 # Info level logging (default)
-cargo run
+cargo run -- --locations "Trondheim"
 
 # Debug level logging for detailed information
-cargo run -- --log-level debug
+cargo run -- --locations "Trondheim" --log-level debug
 
 # Only errors
-cargo run -- --log-level error
+cargo run -- --locations "Trondheim" --log-level error
 
 # Maximum verbosity
-cargo run -- --log-level trace
+cargo run -- --locations "Trondheim" --log-level trace
 ```
 
 #### Log Output Format (JSON)
@@ -66,9 +66,9 @@ All log output is in structured JSON format, consistent with the backend:
 
 **Info Level:**
 ```json
-{"timestamp":"2025-08-11T19:56:59.109169Z","level":"INFO","fields":{"message":"Starting client logger with configuration: Opts { location: \"Trondheim\", service_url: \"http://wictk.frikk.io/\", hemrs_url: \"http://hemrs.frikk.io/\", store_lightning: false, log_level: Info }"},"target":"client_logger"}
+{"timestamp":"2025-08-11T19:56:59.109169Z","level":"INFO","fields":{"message":"Starting client logger with configuration: Opts { locations: [\"Trondheim\"], service_url: \"http://wictk.frikk.io/\", hemrs_url: \"http://hemrs.frikk.io/\", store_lightning: false, log_level: Info }"},"target":"client_logger"}
 {"timestamp":"2025-08-11T19:56:59.128286Z","level":"INFO","fields":{"message":"HTTP client initialized successfully"},"target":"client_logger"}
-{"timestamp":"2025-08-11T19:56:59.128347Z","level":"INFO","fields":{"message":"=== FETCHING NOWCAST DATA ==="},"target":"client_logger"}
+{"timestamp":"2025-08-11T19:56:59.128347Z","level":"INFO","fields":{"message":"Processing location: Trondheim"},"target":"client_logger"}
 ```
 
 **Debug Level:**
@@ -100,7 +100,7 @@ The client logger's logging format is designed to be consistent with the backend
 
 | Option | Short | Default | Description |
 |--------|--------|---------|-------------|
-| `--location` | `-l` | `Trondheim` | Location for weather data |
+| `--locations` | `-l` | *required* | Locations for weather data (can be specified multiple times) |
 | `--service-url` | `-s` | `http://wictk.frikk.io/` | WICTK API base URL |
 | `--hemrs-url` | `-r` | `http://hemrs.frikk.io/` | HEM service base URL |
 | `--store-lightning` | | `false` | Enable lightning data storage |
@@ -127,13 +127,13 @@ Since logs are in JSON format, they can be easily processed with tools like `jq`
 
 ```bash
 # Extract only error messages
-cargo run 2>&1 | jq 'select(.level == "ERROR") | .fields.message'
+cargo run -- --locations "Trondheim" 2>&1 | jq 'select(.level == "ERROR") | .fields.message'
 
 # Show timestamps and messages
-cargo run 2>&1 | jq '{timestamp: .timestamp, level: .level, message: .fields.message}'
+cargo run -- --locations "Trondheim" 2>&1 | jq '{timestamp: .timestamp, level: .level, message: .fields.message}'
 
 # Filter by target
-cargo run 2>&1 | jq 'select(.target == "client_logger")'
+cargo run -- --locations "Trondheim" 2>&1 | jq 'select(.target == "client_logger")'
 ```
 
 ### Production Deployment
@@ -147,5 +147,5 @@ For production use, consider:
 
 Example production command:
 ```bash
-cargo run --release -- --log-level warn --location "Production" >> /var/log/wictk/client_logger.json 2>&1
+cargo run --release -- --locations "Production" --log-level warn >> /var/log/wictk/client_logger.json 2>&1
 ```

@@ -2,7 +2,7 @@ use anyhow::Result;
 use wictk_core::{Lightning, MetNowcast, OpenWeatherNowcast};
 use crate::device::DeviceId;
 use crate::sensor::SensorIds;
-use crate::measurement::Measurement;
+use crate::measurement::NewMeasurement;
 
 pub fn store_met_nowcast(
     client: &reqwest::blocking::Client,
@@ -12,43 +12,43 @@ pub fn store_met_nowcast(
     sensor_ids: &SensorIds,
 ) -> Result<()> {
     tracing::info!("Storing MET nowcast with timestamp: {}", met_nowcast.time);
-    let temperature = Measurement::new_with_ts(
+    let temperature = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.temperature,
         met_nowcast.air_temperature,
     );
-    let humidity = Measurement::new_with_ts(
+    let humidity = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.humidity,
         met_nowcast.relative_humidity,
     );
-    let wind_speed = Measurement::new_with_ts(
+    let wind_speed = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.wind_speed,
         met_nowcast.wind_speed,
     );
-    let wind_deg = Measurement::new_with_ts(
+    let wind_deg = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.wind_deg,
         met_nowcast.wind_from_direction,
     );
-    let precipitation_rate = Measurement::new_with_ts(
+    let precipitation_rate = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.precipitation_rate,
         met_nowcast.precipitation_rate,
     );
-    let precipitation_amount = Measurement::new_with_ts(
+    let precipitation_amount = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.precipitation_amount,
         met_nowcast.precipitation_amount,
     );
-    let wind_speed_gust = Measurement::new_with_ts(
+    let wind_speed_gust = NewMeasurement::new_with_ts(
         met_nowcast.time,
         *device_id,
         sensor_ids.wind_speed_gust,
@@ -78,49 +78,49 @@ pub fn store_openweather_nowcast(
     sensor_ids: &SensorIds,
 ) -> Result<()> {
     tracing::info!("Storing OpenWeather nowcast with timestamp: {}", open_weather_nowcast.dt);
-    let temperature = Measurement::new_with_ts(
+    let temperature = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.temperature,
         open_weather_nowcast.temp,
     );
-    let humidity = Measurement::new_with_ts(
+    let humidity = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.humidity,
         open_weather_nowcast.humidity as f32,
     );
-    let wind_speed = Measurement::new_with_ts(
+    let wind_speed = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.wind_speed,
         open_weather_nowcast.wind_speed,
     );
-    let wind_deg = Measurement::new_with_ts(
+    let wind_deg = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.wind_deg,
         open_weather_nowcast.wind_deg as f32,
     );
-    let feels_like = Measurement::new_with_ts(
+    let feels_like = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.feels_like,
         open_weather_nowcast.feels_like,
     );
-    let pressure = Measurement::new_with_ts(
+    let pressure = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.pressure,
         open_weather_nowcast.pressure as f32,
     );
-    let clouds = Measurement::new_with_ts(
+    let clouds = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.clouds,
         open_weather_nowcast.clouds as f32,
     );
-    let visibility = Measurement::new_with_ts(
+    let visibility = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
         sensor_ids.visibility,
@@ -151,13 +151,13 @@ pub fn store_lightning(
     lat_id: i32,
     lightning: &Lightning,
 ) -> Result<()> {
-    let measurement_1 = Measurement::new_with_ts(
+    let measurement_1 = NewMeasurement::new_with_ts(
         lightning.time,
         *device_id,
         lat_id,
         lightning.location.x() as f32,
     );
-    let measurement_2 = Measurement::new_with_ts(
+    let measurement_2 = NewMeasurement::new_with_ts(
         lightning.time,
         *device_id,
         lon_id,
