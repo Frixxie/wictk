@@ -1516,7 +1516,10 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "structopt",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "wictk_core",
 ]
 

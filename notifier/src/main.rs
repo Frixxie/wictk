@@ -1,12 +1,74 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use reqwest::Client;
-use wictk_core::{Alert, MetAlert};
+use std::time::Duration;
+use structopt::StructOpt;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
+use wictk_core::Alert;
 
 use crate::notifications::{Notifyer, NtfyNotifyer};
 mod alerts;
 mod notifications;
+
+#[derive(Debug, Clone)]
+enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "trace" => Ok(LogLevel::Trace),
+            "debug" => Ok(LogLevel::Debug),
+            "info" => Ok(LogLevel::Info),
+            "warn" => Ok(LogLevel::Warn),
+            "error" => Ok(LogLevel::Error),
+            _ => Err("unknown log level".to_string()),
+        }
+    }
+}
+
+impl From<LogLevel> for Level {
+    fn from(log_level: LogLevel) -> Self {
+        match log_level {
+            LogLevel::Trace => Level::TRACE,
+            LogLevel::Debug => Level::DEBUG,
+            LogLevel::Info => Level::INFO,
+            LogLevel::Warn => Level::WARN,
+            LogLevel::Error => Level::ERROR,
+        }
+    }
+}
+
+#[derive(Debug, StructOpt, Clone)]
+#[structopt(name = "notifier", about = "Notification CLI for WICTK")]
+pub struct Opts {
+    /// Ntfy server URL
+    #[structopt(short, long, default_value = "https://ntfy.frikk.io", env = "NTFY_URL")]
+    ntfy_url: String,
+
+    /// WICTK API alerts endpoint
+    #[structopt(
+        short,
+        long,
+        default_value = "https://wictk.frikk.io/api/alerts",
+        env = "WICTK_ALERTS_URL"
+    )]
+    alerts_url: String,
+
+    /// Notification topic
+    #[structopt(short, long, default_value = "weather_alerts", env = "NTFY_TOPIC")]
+    topic: String,
+
+    /// Log level
+    #[structopt(long, default_value = "info")]
+    log_level: LogLevel,
+}
 
 pub async fn get_met_alerts(client: &Client, url: &str) -> Result<Vec<Alert>> {
     let resp = client.get(url).send().await?;
@@ -16,46 +78,44 @@ pub async fn get_met_alerts(client: &Client, url: &str) -> Result<Vec<Alert>> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let opts = Opts::from_args();
+    let level: Level = opts.log_level.clone().into();
+    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
     let client = reqwest::Client::new();
-    let mut alerter = NtfyNotifyer::new(client.clone(), "https://ntfy.frikk.io".to_string());
+    let mut alerter = NtfyNotifyer::new(client.clone(), opts.ntfy_url.clone());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
+    tracing::info!("Starting notifier with configuration: {:?}", opts);
     loop {
-        let alerts = get_met_alerts(&client, "https://wictk.frikk.io/api/alerts").await?;
-
-        println!("Fetched {} alerts", alerts.len());
-
+        let alerts = get_met_alerts(&client, &opts.alerts_url).await?;
+        tracing::info!("Fetched {} alerts", alerts.len());
         for alert in alerts {
             match alert {
                 Alert::Met(alert) => {
                     let notification: crate::notifications::Notification = alert.into();
-                    match alerter.publish(notification, "weather_alerts").await {
+                    match alerter.publish(notification, &opts.topic).await {
                         Some(_) => {
-                            println!("Notification sent");
+                            tracing::info!("Notification sent");
                         }
                         None => {
-                            println!("Notification was not sent");
+                            tracing::warn!("Notification was not sent");
                         }
                     }
                 }
-                _ => println!("Unknown alert type"),
+                _ => tracing::warn!("Unknown alert type"),
             }
         }
-
-        let alerts = alerter
-            .get_notifications(&"weather_alerts".to_string())
-            .await;
-
-        match alerts {
+        let sent_alerts = alerter.get_notifications(&opts.topic).await;
+        match sent_alerts {
             Some(alerts) => {
                 for alert in alerts {
-                    println!("Sent notification: {:?}", alert);
+                    tracing::info!("Sent notification: {:?}", alert);
                 }
             }
             None => {
-                println!("No notifications sent yet");
+                tracing::info!("No notifications sent yet");
             }
         }
-
         tokio::time::sleep(Duration::from_secs(30)).await;
     }
 }
