@@ -1,151 +1,179 @@
-# Client Logger
+# WICTK – Weather & Lightning Tracking System
 
-The client logger fetches weather data (nowcasts) and lightning data from the WICTK service and stores them in the HEM (Home Energy Management) system.
+## Table of Contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Core Components](#core-components)
+- [Development Guidelines](#development-guidelines)
+- [Build, Test, and Run](#build-test-and-run)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
-## Features
+---
 
-- Fetch nowcast data from MET and OpenWeatherMap
-- Store weather measurements in HEM system  
-- Optional lightning data storage
-- Structured JSON logging (matching backend format)
-- Configurable log levels
-- Automatic device and sensor setup
+## Overview
 
-## Usage
+**WICTK** is a modular, multi-crate Rust workspace for real-time weather and lightning tracking, alerting, and logging. It is designed for reliability, extensibility, and ease of deployment, with a focus on robust backend services, shared business logic, and client-side logging.
 
-### Basic Usage
+---
 
-```bash
-# Run with single location
-cargo run -- --locations "Trondheim"
+## Architecture
 
-# Run with multiple locations
-cargo run -- --locations "Trondheim" --locations "Oslo" --locations "Bergen"
-
-# Include lightning data storage
-cargo run -- --locations "Trondheim" --store-lightning
-
-# Use custom service URLs
-cargo run -- --locations "Trondheim" --service-url "http://localhost:8080/" --hemrs-url "http://localhost:8081/"
-
-# Set log level (matches backend behavior)
-cargo run -- --locations "Trondheim" --log-level debug
+```
++-------------------+      +-------------------+      +-------------------+
+|   client_logger   | ---> |     backend       | ---> |    wictk_core     |
++-------------------+      +-------------------+      +-------------------+
+        |                        |                           |
+        |                        |                           |
+        |                        v                           v
+        |                [External APIs]             [Database/Storage]
+        v
+[IoT Devices/Sensors]
 ```
 
-### Logging Configuration
+- **client_logger**: Collects and sends device/sensor data.
+- **backend**: Axum-based web server, exposes APIs, handles alerts, nowcasts, and status.
+- **wictk_core**: Shared business logic, data models, and integrations.
 
-The client logger uses structured JSON logging identical to the backend's format. Log levels can be set using the `--log-level` command line option.
+---
 
-#### Log Levels
+## Project Structure
 
-- `error`: Only critical errors
-- `warn`: Warnings and errors
-- `info`: General information, warnings, and errors (default)
-- `debug`: Detailed debugging information
-- `trace`: Very verbose tracing information
-
-#### Examples
-
-```bash
-# Info level logging (default)
-cargo run -- --locations "Trondheim"
-
-# Debug level logging for detailed information
-cargo run -- --locations "Trondheim" --log-level debug
-
-# Only errors
-cargo run -- --locations "Trondheim" --log-level error
-
-# Maximum verbosity
-cargo run -- --locations "Trondheim" --log-level trace
+```
+.
+├── backend/         # Main Axum web server (API, alerting, nowcasts)
+│   └── src/handlers/
+├── client_logger/   # Device-side logger and uploader
+│   └── src/
+├── wictk_core/      # Shared business logic, models, and integrations
+│   └── src/
+├── load_test/       # Locust load testing scripts
+├── release/         # Kubernetes manifests and deployment configs
+├── .github/         # CI/CD workflows and config
+├── Dockerfile       # Container build
+├── Makefile         # Build/test helpers
+└── README.md        # (This file)
 ```
 
-#### Log Output Format (JSON)
+---
 
-All log output is in structured JSON format, consistent with the backend:
+## Core Components
 
-**Info Level:**
-```json
-{"timestamp":"2025-08-11T19:56:59.109169Z","level":"INFO","fields":{"message":"Starting client logger with configuration: Opts { locations: [\"Trondheim\"], service_url: \"http://wictk.frikk.io/\", hemrs_url: \"http://hemrs.frikk.io/\", store_lightning: false, log_level: Info }"},"target":"client_logger"}
-{"timestamp":"2025-08-11T19:56:59.128286Z","level":"INFO","fields":{"message":"HTTP client initialized successfully"},"target":"client_logger"}
-{"timestamp":"2025-08-11T19:56:59.128347Z","level":"INFO","fields":{"message":"Processing location: Trondheim"},"target":"client_logger"}
+### backend/
+- **Purpose**: Main API server (Axum), exposes endpoints for alerts, nowcasts, status, and location.
+- **Key files**: `main.rs`, `handlers/`
+- **Features**: Async, error handling, tracing, integrates with `wictk_core`.
+
+### wictk_core/
+- **Purpose**: Shared logic, data models, and integrations (e.g., MET, OpenWeatherMap).
+- **Key files**: `alerts/`, `lightning/`, `locations/`, `nowcasts/`
+- **Features**: Serde serialization, business rules, extensible modules.
+
+### client_logger/
+- **Purpose**: Collects sensor/device data and uploads to backend.
+- **Key files**: `main.rs`, `device.rs`, `measurement.rs`
+- **Features**: Local storage, batching, error recovery.
+
+### load_test/
+- **Purpose**: Load testing with Locust.
+- **Key files**: `locustfile.py`, `requirements.txt`
+
+### release/
+- **Purpose**: Kubernetes deployment manifests.
+- **Key files**: `deployment.yaml`, `service_loadbalancer.yaml`, `cronjob.yaml`
+
+---
+
+## Development Guidelines
+
+- **Language**: Rust 2021 edition
+- **Async**: Use `tokio` runtime, `async fn` for handlers
+- **Error Handling**: Use `anyhow::Error` for main, `Result<T, E>` for fallible ops
+- **Logging**: Use `tracing` crate, `#[instrument]` for tracing
+- **Secrets**: Use `redact::Secret<T>` for sensitive data
+- **JSON**: Use `serde` with `#[derive(Serialize, Deserialize)]`
+- **Testing**: Use `#[cfg(test)]`, `pretty_assertions` for diffs
+- **Imports**: Group by std/external/internal, alphabetical within groups
+- **Naming**: `snake_case` for functions/vars, `PascalCase` for types
+
+See [AGENTS.md](./AGENTS.md) for more details.
+
+---
+
+## Build, Test, and Run
+
+**Build all crates:**
+```sh
+cargo build
+# or
+make build
 ```
 
-**Debug Level:**
-```json
-{"timestamp":"2025-08-11T19:57:45.123456Z","level":"DEBUG","fields":{"message":"Fetching nowcast data","url":"http://wictk.frikk.io/","location":"Trondheim"},"target":"client_logger","spans":[{"name":"get_nowcast"}]}
-{"timestamp":"2025-08-11T19:57:45.234567Z","level":"DEBUG","fields":{"message":"Response status: 200 OK"},"target":"client_logger"}
-```
-
-### Logging Structure
-
-The application provides structured logging at different stages:
-
-1. **Initialization**: Configuration logging, HTTP client setup
-2. **Data Fetching**: API requests, response handling, error reporting
-3. **Device/Sensor Setup**: HEM service communication, device creation/retrieval
-4. **Data Storage**: Measurement creation and storage, success/error reporting
-5. **Lightning Processing**: Filtering logic, storage results, error tracking
-
-### Integration with Backend
-
-The client logger's logging format is designed to be consistent with the backend service:
-
-- Same JSON structure for logs
-- Identical log level naming and behavior
-- Compatible with the same log aggregation and monitoring tools
-- Consistent error reporting format
-
-## Configuration Options
-
-| Option | Short | Default | Description |
-|--------|--------|---------|-------------|
-| `--locations` | `-l` | *required* | Locations for weather data (can be specified multiple times) |
-| `--service-url` | `-s` | `http://wictk.frikk.io/` | WICTK API base URL |
-| `--hemrs-url` | `-r` | `http://hemrs.frikk.io/` | HEM service base URL |
-| `--store-lightning` | | `false` | Enable lightning data storage |
-| `--log-level` | | `info` | Set logging level (trace, debug, info, warn, error) |
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
+**Run all tests:**
+```sh
 cargo test
-
-# Run tests with debug logging
-cargo test -- --log-level debug
-
-# Run specific test module
-cargo test hem::tests
+# or
+make test
 ```
 
-### Log Processing
-
-Since logs are in JSON format, they can be easily processed with tools like `jq`:
-
-```bash
-# Extract only error messages
-cargo run -- --locations "Trondheim" 2>&1 | jq 'select(.level == "ERROR") | .fields.message'
-
-# Show timestamps and messages
-cargo run -- --locations "Trondheim" 2>&1 | jq '{timestamp: .timestamp, level: .level, message: .fields.message}'
-
-# Filter by target
-cargo run -- --locations "Trondheim" 2>&1 | jq 'select(.target == "client_logger")'
+**Check code:**
+```sh
+cargo check
+# or
+make check
 ```
 
-### Production Deployment
-
-For production use, consider:
-
-1. **Log Level**: Set to `info` or `warn` to reduce log volume
-2. **Log Aggregation**: JSON format works well with ELK stack, Splunk, or similar
-3. **Monitoring**: Set up alerts on ERROR level messages
-4. **Storage**: Logs can be large at debug level, plan storage accordingly
-
-Example production command:
-```bash
-cargo run --release -- --locations "Production" --log-level warn >> /var/log/wictk/client_logger.json 2>&1
+**Run backend server:**
+```sh
+cd backend
+cargo run
 ```
+
+**Run client logger:**
+```sh
+cd client_logger
+cargo run
+```
+
+**Load testing:**
+```sh
+cd load_test
+pip install -r requirements.txt
+locust
+```
+
+**Docker:**
+```sh
+docker build -t wictk .
+docker-compose up
+```
+
+**Kubernetes:**
+See `release/` for manifests.
+
+---
+
+## Contributing
+
+- Fork the repo and create a feature branch
+- Follow code style and guidelines above
+- Add tests for new features
+- Open a pull request with a clear description
+
+---
+
+## License
+
+[MIT](./LICENSE) © 2025 Fredrik
+
+---
+
+## Contact
+
+- **Author**: Fredrik
+- **Issues**: [GitHub Issues](https://github.com/yourusername/wictk/issues)
+- **Contributions**: Welcome! See [Contributing](#contributing)
+
+---
