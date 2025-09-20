@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
+use anyhow::Result;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+/// Priority levels for notifications.
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize)]
 pub enum Priority {
     Urgent,
     High,
@@ -13,30 +15,51 @@ pub enum Priority {
     Min,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+impl Priority {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Priority::Urgent => "urgent",
+            Priority::High => "high",
+            Priority::Default => "default",
+            Priority::Low => "low",
+            Priority::Min => "min",
+        }
+    }
+}
+
+/// Tags for notifications.
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize)]
 pub enum Tag {
     Wind,
     Warning,
 }
 
-impl fmt::Display for Tag {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Tag {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Tag::Wind => write!(f, "dash"),
-            Tag::Warning => write!(f, "warning"),
+            Tag::Wind => "dash",
+            Tag::Warning => "warning",
         }
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+impl fmt::Display for Tag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// A notification to be sent.
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize)]
 pub struct Notification {
-    title: String,
-    priority: Priority,
-    tag: Tag,
-    description: String,
+    pub title: String,
+    pub priority: Priority,
+    pub tag: Tag,
+    pub description: String,
 }
 
 impl Notification {
+    /// Create a new notification.
     pub fn new(title: String, priority: Priority, tag: Tag, description: String) -> Self {
         Self {
             title,
@@ -47,106 +70,73 @@ impl Notification {
     }
 }
 
-#[derive(Deserialize)]
+/// Response from the notification service.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NotificationResponse {
-    id: String,
-    time: u32,
-    expires: u32,
-    event: String,
-    topic: String,
-    message: String,
+    pub id: String,
+    pub time: u64,
+    pub expires: u64,
+    pub event: String,
+    pub topic: String,
+    pub message: String,
 }
 
-impl NotificationResponse {
-    pub fn new(
-        id: String,
-        time: u32,
-        expires: u32,
-        event: String,
-        topic: String,
-        message: String,
-    ) -> Self {
-        Self {
-            id,
-            time,
-            expires,
-            event,
-            topic,
-            message,
-        }
+/// Trait for sending and querying notifications.
+pub trait Notifier {
+    async fn publish(&mut self, alert: Notification, topic: &str) -> Result<NotificationResponse>;
+
+    async fn notifications(&self, topic: &str) -> Result<Vec<Notification>>;
+
+    async fn has_sent_alert(&self, alert: &Notification, topic: &str) -> Result<bool> {
+        let notifications = self.notifications(topic).await?;
+        Ok(notifications.contains(alert))
     }
 }
 
-pub trait Notifyer {
-    async fn publish(&mut self, alert: Notification, topic: &str) -> Option<NotificationResponse>;
-
-    async fn get_notifications(&self, topic: &str) -> Option<Vec<Notification>>;
-
-    async fn has_sent_alert(&self, alert: &Notification, topic: &str) -> bool {
-        let notifications = self.get_notifications(topic).await;
-        if let Some(notifications) = notifications {
-            notifications.contains(alert)
-        } else {
-            false
+impl Notifier for NtfyNotifier {
+    async fn publish(&mut self, alert: Notification, topic: &str) -> Result<NotificationResponse> {
+        if self.has_sent_alert(&alert, topic).await? {
+            anyhow::bail!("Notification already sent");
         }
-    }
-}
-
-impl Notifyer for NtfyNotifyer {
-    async fn publish(&mut self, alert: Notification, topic: &str) -> Option<NotificationResponse> {
-        if self.has_sent_alert(&alert, topic).await {
-            return None;
-        }
-        let alrt_clone = alert.clone();
-        let priority = match alert.priority {
-            Priority::Urgent => "urgent",
-            Priority::High => "high",
-            Priority::Default => "default",
-            Priority::Low => "low",
-            Priority::Min => "min",
-        };
-
+        let alert_clone = alert.clone();
         let url = format!("{}/{}", self.ntfy_url, topic);
         let resp = self
             .client
             .post(&url)
-            .header("Title", alert.title)
-            .header("Priority", priority)
-            .header("Tags", alert.tag.to_string())
-            .body(alert.description)
+            .header("Title", &alert.title)
+            .header("Priority", alert.priority.as_str())
+            .header("Tags", alert.tag.as_str())
+            .body(alert.description.clone())
             .send()
-            .await;
+            .await?;
 
-        match resp {
-            Ok(response) => {
-                if response.status().is_success() {
-                    let alert_resp: NotificationResponse = response.json().await.unwrap();
-                    self.add_alert(alrt_clone, topic);
-                    Some(alert_resp)
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
+        if resp.status().is_success() {
+            let alert_resp: NotificationResponse = resp.json().await?;
+            self.add_alert(alert_clone, topic);
+            Ok(alert_resp)
+        } else {
+            anyhow::bail!("Failed to send notification: {}", resp.status());
         }
     }
 
-    async fn get_notifications(&self, topic: &str) -> Option<Vec<Notification>> {
-        if let Some(notifications) = self.sent_notifications.get(topic) {
-            Some(notifications.iter().cloned().collect())
-        } else {
-            None
-        }
+    async fn notifications(&self, topic: &str) -> Result<Vec<Notification>> {
+        Ok(self
+            .sent_notifications
+            .get(topic)
+            .map(|n| n.iter().cloned().collect())
+            .unwrap_or_default())
     }
 }
 
-pub struct NtfyNotifyer {
+/// Implementation of Notifier using ntfy.sh
+pub struct NtfyNotifier {
     sent_notifications: HashMap<String, HashSet<Notification>>,
     client: Client,
     ntfy_url: String,
 }
 
-impl NtfyNotifyer {
+impl NtfyNotifier {
+    /// Create a new NtfyNotifier.
     pub fn new(client: Client, ntfy_url: String) -> Self {
         Self {
             sent_notifications: HashMap::new(),
@@ -155,6 +145,7 @@ impl NtfyNotifyer {
         }
     }
 
+    /// Add an alert to the sent notifications for a topic.
     pub fn add_alert(&mut self, alert: Notification, topic: &str) {
         self.sent_notifications
             .entry(topic.to_string())
@@ -166,62 +157,61 @@ impl NtfyNotifyer {
 #[cfg(test)]
 
 mod tests {
-    use crate::notifications::{Notifyer, NtfyNotifyer};
+    use super::*;
 
     #[tokio::test]
     async fn should_publish_notification_ok() {
         let client = reqwest::Client::new();
-        let mut alerter = NtfyNotifyer::new(client, "https://ntfy.frikk.io".to_string());
-        let alert = crate::notifications::Notification::new(
+        let mut notifier = NtfyNotifier::new(client, "https://ntfy.frikk.io".to_string());
+        let alert = Notification::new(
             "Test Alert".to_string(),
-            crate::notifications::Priority::High,
-            crate::notifications::Tag::Warning,
+            Priority::High,
+            Tag::Warning,
             "This is a test alert".to_string(),
         );
         let topic = "test_topic".to_string();
-        let response = alerter.publish(alert, &topic).await;
-        assert!(response.is_some());
+        let response = notifier.publish(alert, &topic).await;
+        assert!(response.is_ok());
     }
 
     #[tokio::test]
     async fn should_get_no_notifications() {
         let client = reqwest::Client::new();
-        let alerter = NtfyNotifyer::new(client, "https://ntfy.frikk.io".to_string());
+        let notifier = NtfyNotifier::new(client, "https://ntfy.frikk.io".to_string());
         let topic = "non_existent_topic".to_string();
-        let notifications = alerter.get_notifications(&topic).await;
-        assert!(notifications.is_none());
+        let notifications = notifier.notifications(&topic).await;
+        assert!(notifications.unwrap().is_empty());
     }
 
     #[tokio::test]
     async fn should_add_and_get_notifications() {
         let client = reqwest::Client::new();
-        let mut alerter = NtfyNotifyer::new(client, "https://ntfy.frikk.io".to_string());
-        let alert = crate::notifications::Notification::new(
+        let mut notifier = NtfyNotifier::new(client, "https://ntfy.frikk.io".to_string());
+        let alert = Notification::new(
             "Test Alert".to_string(),
-            crate::notifications::Priority::High,
-            crate::notifications::Tag::Warning,
+            Priority::High,
+            Tag::Warning,
             "This is a test alert".to_string(),
         );
         let topic = "test_topic".to_string();
-        alerter.add_alert(alert.clone(), &topic);
-        let notifications = alerter.get_notifications(&topic).await;
-        assert!(notifications.is_some());
-        assert!(notifications.unwrap().contains(&alert));
+        notifier.add_alert(alert.clone(), &topic);
+        let notifications = notifier.notifications(&topic).await.unwrap();
+        assert!(notifications.contains(&alert));
     }
 
     #[tokio::test]
     async fn should_check_sent_alert() {
         let client = reqwest::Client::new();
-        let mut alerter = NtfyNotifyer::new(client, "https://ntfy.frikk.io".to_string());
-        let alert = crate::notifications::Notification::new(
+        let mut notifier = NtfyNotifier::new(client, "https://ntfy.frikk.io".to_string());
+        let alert = Notification::new(
             "Test Alert".to_string(),
-            crate::notifications::Priority::High,
-            crate::notifications::Tag::Warning,
+            Priority::High,
+            Tag::Warning,
             "This is a test alert".to_string(),
         );
         let topic = "test_topic".to_string();
-        alerter.add_alert(alert.clone(), &topic);
-        let has_sent = alerter.has_sent_alert(&alert, &topic).await;
+        notifier.add_alert(alert.clone(), &topic);
+        let has_sent = notifier.has_sent_alert(&alert, &topic).await.unwrap();
         assert!(has_sent);
     }
 }

@@ -6,7 +6,7 @@ use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use wictk_core::Alert;
 
-use crate::notifications::{Notifyer, NtfyNotifyer};
+use crate::notifications::{Notifier, NtfyNotifier};
 mod alerts;
 mod notifications;
 
@@ -68,6 +68,10 @@ pub struct Opts {
     /// Log level
     #[structopt(long, default_value = "info")]
     log_level: LogLevel,
+
+    /// Sleep duration between checks (in seconds)
+    #[structopt(short, long, default_value = "120", env = "SLEEP_DURATION")]
+    sleep: u64,
 }
 
 pub async fn get_met_alerts(client: &Client, url: &str) -> Result<Vec<Alert>> {
@@ -82,7 +86,7 @@ async fn main() -> Result<()> {
     let level: Level = opts.log_level.clone().into();
     let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
     let client = reqwest::Client::new();
-    let mut alerter = NtfyNotifyer::new(client.clone(), opts.ntfy_url.clone());
+    let mut alerter = NtfyNotifier::new(client.clone(), opts.ntfy_url.clone());
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     tracing::info!("Starting notifier with configuration: {:?}", opts);
@@ -94,28 +98,26 @@ async fn main() -> Result<()> {
                 Alert::Met(alert) => {
                     let notification: crate::notifications::Notification = alert.into();
                     match alerter.publish(notification, &opts.topic).await {
-                        Some(_) => {
+                        Ok(_) => {
                             tracing::info!("Notification sent");
                         }
-                        None => {
-                            tracing::warn!("Notification was not sent");
+                        Err(e) => {
+                            tracing::warn!("Notification was not sent: {}", e);
                         }
                     }
                 }
                 _ => tracing::warn!("Unknown alert type"),
             }
         }
-        let sent_alerts = alerter.get_notifications(&opts.topic).await;
+        let sent_alerts = alerter.notifications(&opts.topic).await;
         match sent_alerts {
-            Some(alerts) => {
-                for alert in alerts {
-                    tracing::info!("Sent notification: {:?}", alert);
-                }
+            Ok(alerts) => {
+                tracing::info!("Sent {} notifications", alerts.len());
             }
-            None => {
-                tracing::info!("No notifications sent yet");
+            Err(e) => {
+                tracing::warn!("Could not fetch sent notifications: {}", e);
             }
         }
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        tokio::time::sleep(Duration::from_secs(opts.sleep)).await;
     }
 }
