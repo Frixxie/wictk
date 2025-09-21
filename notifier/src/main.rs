@@ -72,10 +72,17 @@ pub struct Opts {
     /// Sleep duration between checks (in seconds)
     #[structopt(short, long, default_value = "120", env = "SLEEP_DURATION")]
     sleep: u64,
+
+    /// Location (city name or coordinates)
+    #[structopt(short, long, default_value = "Trondheim", env = "LOCATION")]
+    location: String,
 }
 
-pub async fn get_met_alerts(client: &Client, url: &str) -> Result<Vec<Alert>> {
-    let resp = client.get(url).send().await?;
+pub async fn get_met_alerts(client: &Client, url: &str, location: &str) -> Result<Vec<Alert>> {
+    let resp = client
+        .get(&format!("{url}?location={}", location))
+        .send()
+        .await?;
     let alerts: Vec<Alert> = resp.json().await?;
     Ok(alerts)
 }
@@ -91,7 +98,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting notifier with configuration: {:?}", opts);
     loop {
-        let alerts = get_met_alerts(&client, &opts.alerts_url).await?;
+        let alerts = get_met_alerts(&client, &opts.alerts_url, &opts.location).await?;
         tracing::info!("Fetched {} alerts", alerts.len());
         for alert in alerts {
             match alert {
