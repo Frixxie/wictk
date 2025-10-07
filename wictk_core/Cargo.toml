@@ -10,7 +10,7 @@ geo = { version = "0.31.0", features = ["serde", "use-serde"] }
 pretty_assertions = "1.4.1"
 redact = { version = "0.1.11", features = ["serde"] }
 reqwest = { version = "0.12.23", features = ["json"] }
-serde = { version = "1.0.225", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = ["full"] }
 tracing = "0.1.41"
