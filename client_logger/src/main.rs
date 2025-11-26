@@ -231,14 +231,6 @@ fn main() -> Result<()> {
             tracing::info!("First nowcast for {}: {}", location, first_nowcast);
         }
 
-        // Store nowcast data
-        let temp = match fetch_measurements(&client, &opts.hemrs_url, 10, 9) {
-            Ok(temp) => temp,
-            Err(e) => {
-                tracing::error!("Failed to fetch measurements for {}: {}", location, e);
-                continue;
-            }
-        };
         let storage_start = std::time::Instant::now();
         let mut met_count = 0;
         let mut opm_count = 0;
@@ -249,12 +241,6 @@ fn main() -> Result<()> {
             let result = match nowcast.clone() {
                 Nowcast::Met(met_nowcast) => {
                     met_count += 1;
-                    let ratio = calculate_temperature_ratio(
-                        met_nowcast.air_temperature,
-                        temp.value
-                    );
-                    tracing::debug!("Temperature ratio for {}: {:?}", location, ratio);
-
                     tracing::debug!("Storing MET nowcast data for {}", location);
                     store_met_nowcast(
                         &client,
