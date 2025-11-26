@@ -85,11 +85,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_find_lightning() -> Result<()> {
-        let client = Client::new();
-        let url = "https://www.yr.no/api/v0/lightning-events?fromHours=24";
-        let lightning_data = Lightning::find_ligntning(&client, url).await?;
+        let mut server = mockito::Server::new_async().await;
+        let mock_response = serde_json::json!({
+            "historicalData": "[[1700000000,59.9139,10.7522,1],[1700000060,60.1699,11.3001,2]]"
+        });
 
-        assert!(!lightning_data.is_empty());
+        let _m = server
+            .mock("GET", "/api/v0/lightning-events")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(mock_response.to_string())
+            .create_async()
+            .await;
+
+        let client = Client::new();
+        let url = format!("{}/api/v0/lightning-events", server.url());
+        let lightning_data = Lightning::find_ligntning(&client, &url).await?;
+
+        assert_eq!(lightning_data.len(), 2);
+        assert_eq!(lightning_data[0].magic_value, 1);
+        assert_eq!(lightning_data[1].magic_value, 2);
         Ok(())
     }
 }

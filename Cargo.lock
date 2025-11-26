@@ -2679,6 +2679,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "geo",
+ "mockito",
  "pretty_assertions",
  "redact",
  "reqwest",
