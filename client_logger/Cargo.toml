@@ -7,14 +7,14 @@ edition = "2021"
 anyhow = "1.0.100"
 chrono = { version = "0.4.42", features = ["serde"] }
 rayon = "1.11.0"
-reqwest = { version = "0.12.24", features = ["blocking", "json"] }
+reqwest = { version = "0.13.1", features = ["blocking", "json"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+serde_json = "1.0.148"
 structopt = { version = "0.3.26", features = ["color"] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = ["json"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["json"] }
 wictk_core = {path = "../wictk_core"}
 
 [dev-dependencies]
-mockito = "1.7.0"
-geo = "0.31.0"
+mockito = "1.7.1"
+geo = "0.32.0"
