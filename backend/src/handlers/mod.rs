@@ -1,10 +1,10 @@
 use crate::AppState;
 use axum::{
+    Json, Router,
     extract::{Request, State},
     middleware::{self, Next},
     response::Response,
     routing::get,
-    Router,
 };
 use lightning::get_recent_lightning;
 use metrics::histogram;
@@ -13,6 +13,11 @@ use nowcasts::{nowcast_met, nowcast_openweathermap, nowcasts};
 use tokio::time::Instant;
 use tower::ServiceBuilder;
 use tracing::{info, instrument};
+use utoipa::OpenApi;
+use wictk_core::{
+    Alert, Area, City, Coordinates, CoordinatesAsString, Lightning, MetAlert, MetNowcast, Nowcast,
+    OpenWeatherMapLocation, OpenWeatherNowcast, Severity, TimeDuration,
+};
 
 use self::{
     alerts::alerts,
@@ -31,6 +36,56 @@ mod status;
 mod test_utils;
 
 pub use alerts::Alerts;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        status::ping,
+        status::health,
+        alerts::alerts,
+        nowcasts::nowcast_met,
+        nowcasts::nowcast_openweathermap,
+        nowcasts::nowcasts,
+        location::geocoding,
+        lightning::get_recent_lightning,
+        openapi,
+    ),
+    components(
+        schemas(
+            Nowcast,
+            MetNowcast,
+            OpenWeatherNowcast,
+            Alert,
+            MetAlert,
+            Severity,
+            Area,
+            TimeDuration,
+            Lightning,
+            Coordinates,
+            CoordinatesAsString,
+            City,
+            OpenWeatherMapLocation,
+            nowcasts::LocationQuery,
+            nowcasts::LocationParams,
+            alerts::AlertQuery,
+            lightning::LightningQuery,
+        )
+    ),
+    tags(
+        (name = "status", description = "Health check endpoints"),
+        (name = "nowcasts", description = "Weather nowcast endpoints"),
+        (name = "alerts", description = "Weather alert endpoints"),
+        (name = "geocoding", description = "Geocoding endpoints"),
+        (name = "lightning", description = "Lightning data endpoints"),
+        (name = "documentation", description = "API documentation endpoints"),
+    ),
+    info(
+        title = "WICTK Weather API",
+        description = "Weather Information and Climate Toolkit API",
+        version = "0.20.1"
+    )
+)]
+pub struct ApiDoc;
 
 #[instrument]
 pub async fn profile_endpoint(request: Request, next: Next) -> Response {
@@ -74,10 +129,23 @@ pub fn setup_router(app_state: AppState, metrics_handler: PrometheusHandle) -> R
 
     Router::new()
         .route("/metrics", get(metrics))
+        .route("/openapi", get(openapi))
         .with_state(metrics_handler)
         .nest("/status", status)
         .nest("/api", api)
         .layer(ServiceBuilder::new().layer(middleware::from_fn(profile_endpoint)))
+}
+
+#[utoipa::path(
+    get,
+    path = "/openapi.json",
+    responses(
+        (status = 200, description = "OpenAPI specification")
+    ),
+    tag = "documentation"
+)]
+async fn openapi() -> Json<utoipa::openapi::OpenApi> {
+    Json(ApiDoc::openapi())
 }
 
 #[instrument]
@@ -87,10 +155,10 @@ async fn metrics(State(handle): State<PrometheusHandle>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::handlers::test_utils::{create_test_app, make_request, make_request_with_method};
+    use axum::http::StatusCode;
     use axum::{extract::Query, http::Uri};
     use wictk_core::{City, CoordinatesAsString};
-    use axum::http::StatusCode;
-    use crate::handlers::test_utils::{create_test_app, make_request, make_request_with_method};
 
     use crate::handlers::nowcasts::LocationQuery;
 
@@ -98,9 +166,9 @@ mod tests {
     async fn test_metrics_endpoint() {
         let app = create_test_app();
         let (status, _body) = make_request(app, "/metrics").await;
-        
+
         assert_eq!(status, StatusCode::OK);
-        
+
         // Metrics endpoint may return empty if no metrics have been recorded yet
         // The important thing is that it responds with 200 OK
     }
@@ -109,7 +177,7 @@ mod tests {
     async fn test_invalid_endpoint() {
         let app = create_test_app();
         let (status, _body) = make_request(app, "/api/invalid").await;
-        
+
         assert_eq!(status, StatusCode::NOT_FOUND);
     }
 
@@ -117,21 +185,21 @@ mod tests {
     async fn test_invalid_method() {
         let app = create_test_app();
         let (status, _body) = make_request_with_method(app, "POST", "/status/ping").await;
-        
+
         assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[tokio::test]
     async fn test_endpoint_timing_metrics() {
         let app = create_test_app();
-        
+
         // Make a request to generate metrics
         let _ = make_request(app.clone(), "/status/ping").await;
-        
+
         // Check that metrics are generated
         let (status, body) = make_request(app, "/metrics").await;
         assert_eq!(status, StatusCode::OK);
-        
+
         let body_str = String::from_utf8(body).unwrap();
         assert!(body_str.contains("handler"));
     }

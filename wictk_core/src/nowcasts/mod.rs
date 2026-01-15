@@ -7,8 +7,9 @@ pub use openweathermap::OpenWeatherNowcast;
 use std::{error::Error, fmt::Display};
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Nowcast {
     Met(MetNowcast),

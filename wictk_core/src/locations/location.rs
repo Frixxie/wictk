@@ -4,10 +4,11 @@ use redact::Secret;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
+use utoipa::ToSchema;
 
 use super::Coordinates;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct OpenWeatherMapLocation {
     pub name: String,
     pub local_names: Option<HashMap<String, String>>,

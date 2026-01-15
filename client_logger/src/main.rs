@@ -119,9 +119,7 @@ fn main() -> Result<()> {
 
     let level: Level = opts.log_level.clone().into();
 
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(level)
-        .finish();
+    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
@@ -201,7 +199,11 @@ fn main() -> Result<()> {
             location,
         ) {
             Ok(device_id) => {
-                tracing::info!("MET device setup completed for {} (ID: {})", location, device_id);
+                tracing::info!(
+                    "MET device setup completed for {} (ID: {})",
+                    location,
+                    device_id
+                );
                 device_id
             }
             Err(e) => {
@@ -217,11 +219,19 @@ fn main() -> Result<()> {
             location,
         ) {
             Ok(device_id) => {
-                tracing::info!("OpenWeatherMap device setup completed for {} (ID: {})", location, device_id);
+                tracing::info!(
+                    "OpenWeatherMap device setup completed for {} (ID: {})",
+                    location,
+                    device_id
+                );
                 device_id
             }
             Err(e) => {
-                tracing::error!("Failed to setup OpenWeatherMap device for {}: {}", location, e);
+                tracing::error!(
+                    "Failed to setup OpenWeatherMap device for {}: {}",
+                    location,
+                    e
+                );
                 continue;
             }
         };
@@ -236,7 +246,12 @@ fn main() -> Result<()> {
         let mut opm_count = 0;
 
         for (index, nowcast) in nowcasts.iter().enumerate() {
-            tracing::debug!("Processing nowcast {} of {} for {}", index + 1, nowcasts.len(), location);
+            tracing::debug!(
+                "Processing nowcast {} of {} for {}",
+                index + 1,
+                nowcasts.len(),
+                location
+            );
 
             let result = match nowcast.clone() {
                 Nowcast::Met(met_nowcast) => {
@@ -264,9 +279,16 @@ fn main() -> Result<()> {
             };
 
             match result {
-                Ok(()) => tracing::debug!("Successfully stored nowcast {} for {}", index + 1, location),
+                Ok(()) => {
+                    tracing::debug!("Successfully stored nowcast {} for {}", index + 1, location)
+                }
                 Err(e) => {
-                    tracing::error!("Failed to store nowcast {} for {}: {}", index + 1, location, e);
+                    tracing::error!(
+                        "Failed to store nowcast {} for {}: {}",
+                        index + 1,
+                        location,
+                        e
+                    );
                     continue;
                 }
             }
@@ -282,8 +304,6 @@ fn main() -> Result<()> {
             storage_elapsed.as_secs_f64()
         );
     }
-
-
 
     // Handle lightning data if requested
     if !opts.store_lightning {

@@ -3,6 +3,7 @@ use geo::Point;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 use super::{Alert, AlertError, Severity};
 
@@ -12,19 +13,30 @@ impl From<MetAlert> for Alert {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A geographic point with longitude (x) and latitude (y)
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoPoint {
+    /// Longitude
+    pub x: f64,
+    /// Latitude
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum Area {
+    #[schema(value_type = Vec<GeoPoint>)]
     Single(Vec<Point>),
+    #[schema(value_type = Vec<Vec<GeoPoint>>)]
     Multiple(Vec<Vec<Point>>),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct TimeDuration {
     from: DateTime<Utc>,
     until: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct MetAlert {
     pub title: String,
     pub severity: Severity,

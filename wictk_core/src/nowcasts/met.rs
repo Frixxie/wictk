@@ -3,12 +3,13 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
+use utoipa::ToSchema;
 
 use crate::locations::Coordinates;
 
 use super::{Nowcast, NowcastError};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MetNowcast {
     pub time: DateTime<Utc>,
     pub location: Coordinates,
@@ -176,19 +177,22 @@ mod tests {
             env!("CARGO_PKG_HOMEPAGE"),
         );
         let client = client_builder.user_agent(APP_USER_AGENT).build().unwrap();
-        
+
         // First check if we can reach the API
         let ping_result = client
             .head("https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=63.4308&lon=10.4034")
             .send()
             .await;
-        
+
         if ping_result.is_err() {
             // Skip test if API is unreachable
-            eprintln!("Skipping met_fetch test - API unreachable: {:?}", ping_result.unwrap_err());
+            eprintln!(
+                "Skipping met_fetch test - API unreachable: {:?}",
+                ping_result.unwrap_err()
+            );
             return;
         }
-        
+
         let location = Coordinates::new(10.4034, 63.4308);
         let nowcast = MetNowcast::fetch(&client, &location).await;
         match &nowcast {

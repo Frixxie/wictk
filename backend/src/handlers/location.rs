@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Query, State},
     Json,
+    extract::{Query, State},
 };
 use moka::future::Cache;
 use redact::Secret;
@@ -42,6 +42,17 @@ pub async fn lookup_location(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/geocoding",
+    params(City),
+    responses(
+        (status = 200, description = "List of matching locations", body = Vec<OpenWeatherMapLocation>),
+        (status = 404, description = "No location found"),
+        (status = 500, description = "Internal server error", body = String)
+    ),
+    tag = "geocoding"
+)]
 pub async fn geocoding(
     State(app_state): State<AppState>,
     Query(query): Query<City>,
@@ -65,14 +76,14 @@ pub async fn geocoding(
 
 #[cfg(test)]
 mod tests {
-    use axum::http::StatusCode;
     use crate::handlers::test_utils::{create_test_app, make_request};
+    use axum::http::StatusCode;
 
     #[tokio::test]
     async fn test_geocoding_missing_params() {
         let app = create_test_app();
         let (status, _body) = make_request(app, "/api/geocoding").await;
-        
+
         assert_eq!(status, StatusCode::BAD_REQUEST);
     }
 }

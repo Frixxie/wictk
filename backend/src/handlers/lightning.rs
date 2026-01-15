@@ -1,21 +1,59 @@
-use axum::{extract::{Query, State}, Json};
+use axum::{
+    Json,
+    extract::{Query, State},
+};
 use geo::{Distance, Haversine, Point};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
+use utoipa::{IntoParams, ToSchema};
 use wictk_core::Lightning;
 
 use crate::AppState;
 
-use super::{error::ApplicationError, nowcasts::{find_location, LocationQuery}};
+use super::{
+    error::ApplicationError,
+    nowcasts::{LocationQuery, find_location},
+};
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct LightningQuery {
-    #[serde(flatten)]
-    pub location: Option<LocationQuery>,
+    /// Optional location name (e.g., "Oslo")
+    pub location: Option<String>,
+    /// Optional latitude coordinate
+    pub lat: Option<String>,
+    /// Optional longitude coordinate
+    pub lon: Option<String>,
+    /// Radius in kilometers to filter lightning strikes (default: 50)
     pub radius_km: Option<f64>,
 }
 
+impl LightningQuery {
+    fn into_location_query(self) -> (Option<LocationQuery>, Option<f64>) {
+        let location_query = if let Some(location) = self.location {
+            Some(LocationQuery::Location(wictk_core::City { location }))
+        } else if let (Some(lat), Some(lon)) = (self.lat, self.lon) {
+            Some(LocationQuery::Coordinates(
+                wictk_core::CoordinatesAsString { lat, lon },
+            ))
+        } else {
+            None
+        };
+        (location_query, self.radius_km)
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/recent_lightning",
+    params(LightningQuery),
+    responses(
+        (status = 200, description = "List of recent lightning strikes", body = Vec<Lightning>),
+        (status = 500, description = "Internal server error", body = String)
+    ),
+    tag = "lightning"
+)]
 #[instrument]
 pub async fn get_recent_lightning(
     app_state: State<AppState>,
@@ -42,8 +80,11 @@ pub async fn get_recent_lightning(
         }
     };
 
+    // Convert query to location query and radius
+    let (location_query, radius_km) = query.into_location_query();
+
     // If no location is provided, return all lightning data
-    let Some(location_query) = query.location else {
+    let Some(location_query) = location_query else {
         return Ok(Json(lightning_data));
     };
 
@@ -62,9 +103,9 @@ pub async fn get_recent_lightning(
 
     // Convert to geo::Point for distance calculations
     let query_point = Point::new(location_coords.lon as f64, location_coords.lat as f64);
-    
+
     // Default radius to 50km if not specified
-    let radius_meters = query.radius_km.unwrap_or(50.0) * 1000.0;
+    let radius_meters = radius_km.unwrap_or(50.0) * 1000.0;
 
     // Filter lightning strikes within the specified radius
     let filtered_lightning: Vec<Lightning> = lightning_data
@@ -82,14 +123,14 @@ pub async fn get_recent_lightning(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::StatusCode;
     use crate::handlers::test_utils::{create_test_app, make_request};
+    use axum::http::StatusCode;
 
     #[tokio::test]
     async fn test_recent_lightning_endpoint() {
         let app = create_test_app();
         let (status, _body) = make_request(app, "/api/recent_lightning").await;
-        
+
         // External API dependency - test endpoint structure
         assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -98,11 +139,8 @@ mod tests {
     fn test_lightning_query_city() {
         let json = r#"{"location": "Oslo", "radius_km": 100.0}"#;
         let query: LightningQuery = serde_json::from_str(json).unwrap();
-        
-        match query.location.unwrap() {
-            LocationQuery::Location(city) => assert_eq!(city.location, "Oslo"),
-            _ => panic!("Expected city location"),
-        }
+
+        assert_eq!(query.location, Some("Oslo".to_string()));
         assert_eq!(query.radius_km, Some(100.0));
     }
 
@@ -110,14 +148,9 @@ mod tests {
     fn test_lightning_query_coordinates() {
         let json = r#"{"lat": "63.4308", "lon": "10.4034", "radius_km": 50.0}"#;
         let query: LightningQuery = serde_json::from_str(json).unwrap();
-        
-        match query.location.unwrap() {
-            LocationQuery::Coordinates(coords) => {
-                assert_eq!(coords.lat, "63.4308");
-                assert_eq!(coords.lon, "10.4034");
-            },
-            _ => panic!("Expected coordinate location"),
-        }
+
+        assert_eq!(query.lat, Some("63.4308".to_string()));
+        assert_eq!(query.lon, Some("10.4034".to_string()));
         assert_eq!(query.radius_km, Some(50.0));
     }
 
@@ -125,7 +158,7 @@ mod tests {
     fn test_lightning_query_no_location() {
         let json = r#"{}"#;
         let query: LightningQuery = serde_json::from_str(json).unwrap();
-        
+
         assert!(query.location.is_none());
         assert_eq!(query.radius_km, None);
     }
@@ -134,7 +167,7 @@ mod tests {
     fn test_lightning_query_default_radius() {
         let json = r#"{"location": "Trondheim"}"#;
         let query: LightningQuery = serde_json::from_str(json).unwrap();
-        
+
         assert!(query.location.is_some());
         assert_eq!(query.radius_km, None);
     }
@@ -144,9 +177,9 @@ mod tests {
         // Create two points: Oslo and Trondheim (approximately 388km apart)
         let oslo = Point::new(10.7522, 59.9139);
         let trondheim = Point::new(10.4034, 63.4308);
-        
+
         let distance = Haversine.distance(oslo, trondheim);
-        
+
         // Distance should be approximately 388km (388000 meters)
         assert!((distance - 388000.0_f64).abs() < 10000.0); // Allow 10km tolerance
     }

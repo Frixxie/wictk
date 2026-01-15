@@ -52,38 +52,39 @@ mod tests {
     #[test]
     fn should_fetch_devices_successfully() {
         let mut server = Server::new();
-        let mock = server.mock("GET", "/")
+        let mock = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"[
+            .with_body(
+                r#"[
                 {"id": 1, "name": "test_device", "location": "test_location"},
                 {"id": 2, "name": "another_device", "location": "another_location"}
-            ]"#)
+            ]"#,
+            )
             .create();
 
         let client = reqwest::blocking::Client::new();
         let result = fetch_devices(&client, &server.url());
-        
+
         assert!(result.is_ok());
         let devices = result.unwrap();
         assert_eq!(devices.len(), 2);
         assert_eq!(devices[0].id, 1);
         assert_eq!(devices[0].name, "test_device");
         assert_eq!(devices[0].location, "test_location");
-        
+
         mock.assert();
     }
 
     #[test]
     fn should_handle_fetch_devices_error() {
         let mut server = Server::new();
-        let mock = server.mock("GET", "/")
-            .with_status(500)
-            .create();
+        let mock = server.mock("GET", "/").with_status(500).create();
 
         let client = reqwest::blocking::Client::new();
         let result = fetch_devices(&client, &server.url());
-        
+
         assert!(result.is_err());
         mock.assert();
     }
@@ -91,17 +92,20 @@ mod tests {
     #[test]
     fn should_setup_existing_device() {
         let mut server = Server::new();
-        let mock_get = server.mock("GET", "/")
+        let mock_get = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"[
+            .with_body(
+                r#"[
                 {"id": 1, "name": "existing_device", "location": "test_location"}
-            ]"#)
+            ]"#,
+            )
             .create();
 
         let client = reqwest::blocking::Client::new();
         let result = setup_device(&client, &server.url(), "existing_device", "test_location");
-        
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 1);
         mock_get.assert();
@@ -110,33 +114,38 @@ mod tests {
     #[test]
     fn should_setup_new_device() {
         let mut server = Server::new();
-        
-        let mock_get1 = server.mock("GET", "/")
+
+        let mock_get1 = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("[]")
             .create();
-            
-        let mock_post = server.mock("POST", "/")
+
+        let mock_post = server
+            .mock("POST", "/")
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id": 2, "name": "new_device", "location": "new_location"}"#)
             .create();
-            
-        let mock_get2 = server.mock("GET", "/")
+
+        let mock_get2 = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"[
+            .with_body(
+                r#"[
                 {"id": 2, "name": "new_device", "location": "new_location"}
-            ]"#)
+            ]"#,
+            )
             .create();
 
         let client = reqwest::blocking::Client::new();
         let result = setup_device(&client, &server.url(), "new_device", "new_location");
-        
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 2);
-        
+
         mock_get1.assert();
         mock_post.assert();
         mock_get2.assert();
@@ -149,13 +158,13 @@ mod tests {
             name: "test".to_string(),
             location: "location".to_string(),
         };
-        
+
         let device2 = Device {
             id: 1,
             name: "test".to_string(),
             location: "location".to_string(),
         };
-        
+
         assert_eq!(device1, device2);
     }
 
@@ -166,7 +175,7 @@ mod tests {
             name: "test_device".to_string(),
             location: "test_location".to_string(),
         };
-        
+
         let json = serde_json::to_string(&device).unwrap();
         let expected = r#"{"name":"test_device","location":"test_location"}"#;
         assert_eq!(json, expected);

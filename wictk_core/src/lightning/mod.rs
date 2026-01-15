@@ -4,9 +4,26 @@ use geo::Point;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A geographic point with longitude (x) and latitude (y)
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoPoint {
+    /// Longitude
+    pub x: f64,
+    /// Latitude
+    pub y: f64,
+}
+
+impl From<Point> for GeoPoint {
+    fn from(p: Point) -> Self {
+        GeoPoint { x: p.x(), y: p.y() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Lightning {
+    #[schema(value_type = GeoPoint)]
     pub location: Point,
     pub time: DateTime<Utc>,
     pub magic_value: u8,

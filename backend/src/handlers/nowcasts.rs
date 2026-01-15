@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Query, State},
     Json,
+    extract::{Query, State},
 };
 use moka::future::Cache;
 use redact::Secret;
@@ -8,6 +8,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use tracing::instrument;
+use utoipa::{IntoParams, ToSchema};
 use wictk_core::{
     City, Coordinates, CoordinatesAsString, MetNowcast, Nowcast, OpenWeatherMapLocation,
     OpenWeatherNowcast,
@@ -17,11 +18,35 @@ use crate::AppState;
 
 use super::{error::ApplicationError, location::lookup_location};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum LocationQuery {
     Location(City),
     Coordinates(CoordinatesAsString),
+}
+
+/// Query parameters for location-based endpoints
+#[derive(Debug, Serialize, Deserialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct LocationParams {
+    /// Location name (e.g., "Oslo")
+    pub location: Option<String>,
+    /// Latitude coordinate
+    pub lat: Option<String>,
+    /// Longitude coordinate
+    pub lon: Option<String>,
+}
+
+impl LocationParams {
+    pub fn into_location_query(self) -> Option<LocationQuery> {
+        if let Some(location) = self.location {
+            Some(LocationQuery::Location(City { location }))
+        } else if let (Some(lat), Some(lon)) = (self.lat, self.lon) {
+            Some(LocationQuery::Coordinates(CoordinatesAsString { lat, lon }))
+        } else {
+            None
+        }
+    }
 }
 
 pub async fn find_location(
@@ -46,13 +71,31 @@ pub async fn find_location(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/met/nowcasts",
+    params(LocationParams),
+    responses(
+        (status = 200, description = "Weather nowcast from Met.no", body = Nowcast),
+        (status = 400, description = "Bad request - missing or invalid parameters"),
+        (status = 500, description = "Internal server error", body = String)
+    ),
+    tag = "nowcasts"
+)]
 #[instrument]
 pub async fn nowcast_met(
     app_state: State<AppState>,
-    Query(location): Query<LocationQuery>,
+    Query(params): Query<LocationParams>,
 ) -> Result<Json<Nowcast>, ApplicationError> {
+    let location_query = params.into_location_query().ok_or_else(|| {
+        ApplicationError::new(
+            "Missing location parameter. Provide 'location' or 'lat' and 'lon'",
+            StatusCode::BAD_REQUEST,
+        )
+    })?;
+
     let location = find_location(
-        location,
+        location_query,
         &app_state.client,
         &app_state.location_cache,
         &app_state.openweathermap_apikey,
@@ -85,13 +128,31 @@ pub async fn nowcast_met(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/owm/nowcasts",
+    params(LocationParams),
+    responses(
+        (status = 200, description = "Weather nowcast from OpenWeatherMap", body = Nowcast),
+        (status = 400, description = "Bad request - missing or invalid parameters"),
+        (status = 500, description = "Internal server error", body = String)
+    ),
+    tag = "nowcasts"
+)]
 #[instrument]
 pub async fn nowcast_openweathermap(
     app_state: State<AppState>,
-    Query(location): Query<LocationQuery>,
+    Query(params): Query<LocationParams>,
 ) -> Result<Json<Nowcast>, ApplicationError> {
+    let location_query = params.into_location_query().ok_or_else(|| {
+        ApplicationError::new(
+            "Missing location parameter. Provide 'location' or 'lat' and 'lon'",
+            StatusCode::BAD_REQUEST,
+        )
+    })?;
+
     let location = find_location(
-        location,
+        location_query,
         &app_state.client,
         &app_state.location_cache,
         &app_state.openweathermap_apikey,
@@ -128,13 +189,31 @@ pub async fn nowcast_openweathermap(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/nowcasts",
+    params(LocationParams),
+    responses(
+        (status = 200, description = "Weather nowcasts from both Met.no and OpenWeatherMap", body = Vec<Nowcast>),
+        (status = 400, description = "Bad request - missing or invalid parameters"),
+        (status = 500, description = "Internal server error", body = String)
+    ),
+    tag = "nowcasts"
+)]
 #[instrument]
 pub async fn nowcasts(
     app_state: State<AppState>,
-    Query(location): Query<LocationQuery>,
+    Query(params): Query<LocationParams>,
 ) -> Result<Json<Vec<Nowcast>>, ApplicationError> {
+    let location_query = params.into_location_query().ok_or_else(|| {
+        ApplicationError::new(
+            "Missing location parameter. Provide 'location' or 'lat' and 'lon'",
+            StatusCode::BAD_REQUEST,
+        )
+    })?;
+
     let location = find_location(
-        location,
+        location_query,
         &app_state.client,
         &app_state.location_cache,
         &app_state.openweathermap_apikey,

@@ -4,12 +4,13 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
+use utoipa::ToSchema;
 
 use crate::locations::Coordinates;
 
 use super::{Nowcast, NowcastError};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct OpenWeatherNowcast {
     pub dt: DateTime<Utc>,
     pub name: String,

@@ -1,8 +1,8 @@
+use crate::device::DeviceId;
+use crate::measurement::NewMeasurement;
+use crate::sensor::SensorIds;
 use anyhow::Result;
 use wictk_core::{Lightning, MetNowcast, OpenWeatherNowcast};
-use crate::device::DeviceId;
-use crate::sensor::SensorIds;
-use crate::measurement::NewMeasurement;
 
 pub fn store_met_nowcast(
     client: &reqwest::blocking::Client,
@@ -57,13 +57,13 @@ pub fn store_met_nowcast(
     client
         .post(url)
         .json(&vec![
-            &temperature, 
-            &humidity, 
-            &wind_speed, 
+            &temperature,
+            &humidity,
+            &wind_speed,
             &wind_deg,
             &precipitation_rate,
             &precipitation_amount,
-            &wind_speed_gust
+            &wind_speed_gust,
         ])
         .send()?
         .error_for_status()?;
@@ -77,7 +77,10 @@ pub fn store_openweather_nowcast(
     device_id: &DeviceId,
     sensor_ids: &SensorIds,
 ) -> Result<()> {
-    tracing::info!("Storing OpenWeather nowcast with timestamp: {}", open_weather_nowcast.dt);
+    tracing::info!(
+        "Storing OpenWeather nowcast with timestamp: {}",
+        open_weather_nowcast.dt
+    );
     let temperature = NewMeasurement::new_with_ts(
         open_weather_nowcast.dt,
         *device_id,
@@ -136,7 +139,7 @@ pub fn store_openweather_nowcast(
             &feels_like,
             &pressure,
             &clouds,
-            &visibility
+            &visibility,
         ])
         .send()?
         .error_for_status()?;
@@ -174,10 +177,10 @@ pub fn store_lightning(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::Server;
     use chrono::Utc;
-    use wictk_core::{MetNowcast, OpenWeatherNowcast};
     use geo::Point;
+    use mockito::Server;
+    use wictk_core::{MetNowcast, OpenWeatherNowcast};
 
     #[test]
     fn should_store_met_nowcast() {
@@ -193,10 +196,13 @@ mod tests {
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let met_nowcast = MetNowcast {
             time: timestamp,
-            location: wictk_core::Coordinates { lon: 10.0, lat: 63.0 },
+            location: wictk_core::Coordinates {
+                lon: 10.0,
+                lat: 63.0,
+            },
             description: "Clear".to_string(),
             air_temperature: 20.5,
             relative_humidity: 65.0,
@@ -206,7 +212,7 @@ mod tests {
             wind_speed_gust: 6.0,
             wind_from_direction: 180.0,
         };
-        
+
         let device_id = 1;
         let sensor_ids = SensorIds {
             temperature: 1,
@@ -224,7 +230,13 @@ mod tests {
             lat: 13,
         };
 
-        let result = store_met_nowcast(&client, &server.url(), &met_nowcast, &device_id, &sensor_ids);
+        let result = store_met_nowcast(
+            &client,
+            &server.url(),
+            &met_nowcast,
+            &device_id,
+            &sensor_ids,
+        );
         assert!(result.is_ok());
         mock.assert();
     }
@@ -232,15 +244,13 @@ mod tests {
     #[test]
     fn should_store_openweather_nowcast() {
         let mut server = Server::new();
-        let mock = server.mock("POST", "/")
-            .with_status(200)
-            .create();
+        let mock = server.mock("POST", "/").with_status(200).create();
 
         let client = reqwest::blocking::Client::new();
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let openweather_nowcast = OpenWeatherNowcast {
             dt: timestamp,
             name: "Trondheim".to_string(),
@@ -258,7 +268,7 @@ mod tests {
             humidity: 70,
             pressure: 1013,
         };
-        
+
         let device_id = 1;
         let sensor_ids = SensorIds {
             temperature: 1,
@@ -276,7 +286,13 @@ mod tests {
             lat: 13,
         };
 
-        let result = store_openweather_nowcast(&client, &server.url(), &openweather_nowcast, &device_id, &sensor_ids);
+        let result = store_openweather_nowcast(
+            &client,
+            &server.url(),
+            &openweather_nowcast,
+            &device_id,
+            &sensor_ids,
+        );
         assert!(result.is_ok());
         mock.assert();
     }
@@ -295,18 +311,25 @@ mod tests {
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let lightning = Lightning {
             time: timestamp,
             location: Point::new(10.0, 63.0),
             magic_value: 42,
         };
-        
+
         let device_id = 1;
-        let lon_id = 12; 
+        let lon_id = 12;
         let lat_id = 13;
 
-        let result = store_lightning(&client, &server.url(), &device_id, lon_id, lat_id, &lightning);
+        let result = store_lightning(
+            &client,
+            &server.url(),
+            &device_id,
+            lon_id,
+            lat_id,
+            &lightning,
+        );
         assert!(result.is_ok());
         mock.assert();
     }
@@ -314,18 +337,19 @@ mod tests {
     #[test]
     fn should_handle_store_met_nowcast_error() {
         let mut server = Server::new();
-        let mock = server.mock("POST", "/")
-            .with_status(500)
-            .create();
+        let mock = server.mock("POST", "/").with_status(500).create();
 
         let client = reqwest::blocking::Client::new();
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let met_nowcast = MetNowcast {
             time: timestamp,
-            location: wictk_core::Coordinates { lon: 10.0, lat: 63.0 },
+            location: wictk_core::Coordinates {
+                lon: 10.0,
+                lat: 63.0,
+            },
             description: "Clear".to_string(),
             air_temperature: 20.5,
             relative_humidity: 65.0,
@@ -335,7 +359,7 @@ mod tests {
             wind_speed_gust: 6.0,
             wind_from_direction: 180.0,
         };
-        
+
         let device_id = 1;
         let sensor_ids = SensorIds {
             temperature: 1,
@@ -353,23 +377,30 @@ mod tests {
             lat: 13,
         };
 
-        let result = store_met_nowcast(&client, &server.url(), &met_nowcast, &device_id, &sensor_ids);
-        assert!(result.is_err(), "Expected error for HTTP 500 but got: {result:?}");
+        let result = store_met_nowcast(
+            &client,
+            &server.url(),
+            &met_nowcast,
+            &device_id,
+            &sensor_ids,
+        );
+        assert!(
+            result.is_err(),
+            "Expected error for HTTP 500 but got: {result:?}"
+        );
         mock.assert();
     }
 
     #[test]
     fn should_handle_store_openweather_nowcast_error() {
         let mut server = Server::new();
-        let mock = server.mock("POST", "/")
-            .with_status(500)
-            .create();
+        let mock = server.mock("POST", "/").with_status(500).create();
 
         let client = reqwest::blocking::Client::new();
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let openweather_nowcast = OpenWeatherNowcast {
             dt: timestamp,
             name: "Trondheim".to_string(),
@@ -387,7 +418,7 @@ mod tests {
             humidity: 70,
             pressure: 1013,
         };
-        
+
         let device_id = 1;
         let sensor_ids = SensorIds {
             temperature: 1,
@@ -405,35 +436,52 @@ mod tests {
             lat: 13,
         };
 
-        let result = store_openweather_nowcast(&client, &server.url(), &openweather_nowcast, &device_id, &sensor_ids);
-        assert!(result.is_err(), "Expected error for HTTP 500 but got: {result:?}");
+        let result = store_openweather_nowcast(
+            &client,
+            &server.url(),
+            &openweather_nowcast,
+            &device_id,
+            &sensor_ids,
+        );
+        assert!(
+            result.is_err(),
+            "Expected error for HTTP 500 but got: {result:?}"
+        );
         mock.assert();
     }
 
     #[test]
     fn should_handle_store_lightning_error() {
         let mut server = Server::new();
-        let mock = server.mock("POST", "/")
-            .with_status(500)
-            .create();
+        let mock = server.mock("POST", "/").with_status(500).create();
 
         let client = reqwest::blocking::Client::new();
         let timestamp = chrono::DateTime::parse_from_rfc3339("2025-08-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        
+
         let lightning = Lightning {
             time: timestamp,
             location: Point::new(10.0, 63.0),
             magic_value: 42,
         };
-        
+
         let device_id = 1;
         let lon_id = 12;
         let lat_id = 13;
 
-        let result = store_lightning(&client, &server.url(), &device_id, lon_id, lat_id, &lightning);
-        assert!(result.is_err(), "Expected error for HTTP 500 but got: {result:?}");
+        let result = store_lightning(
+            &client,
+            &server.url(),
+            &device_id,
+            lon_id,
+            lat_id,
+            &lightning,
+        );
+        assert!(
+            result.is_err(),
+            "Expected error for HTTP 500 but got: {result:?}"
+        );
         mock.assert();
     }
 }

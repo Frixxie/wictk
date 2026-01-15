@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 use super::location::LocationError;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct Coordinates {
     pub lon: f32,
     pub lat: f32,
@@ -15,7 +16,7 @@ impl std::fmt::Display for Coordinates {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct CoordinatesAsString {
     pub lon: String,
     pub lat: String,

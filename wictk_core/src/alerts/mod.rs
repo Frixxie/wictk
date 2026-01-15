@@ -1,11 +1,11 @@
 mod met;
 
-pub use met::{MetAlert, Area};
+pub use met::{Area, MetAlert, TimeDuration};
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum Alert {
     /// The alert was issued by the National Weather Service.
     Met(MetAlert),
@@ -13,7 +13,7 @@ pub enum Alert {
     Nve,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum Severity {
     /// The alert is for a moderate event.
     Yellow,

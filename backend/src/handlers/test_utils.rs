@@ -1,10 +1,10 @@
 use crate::{AppState, handlers::setup_router};
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use tower::ServiceExt;
@@ -31,28 +31,29 @@ pub fn create_test_app() -> axum::Router {
 }
 
 pub async fn make_request(app: axum::Router, uri: &str) -> (StatusCode, Vec<u8>) {
-    let request = Request::builder()
-        .uri(uri)
-        .body(Body::empty())
-        .unwrap();
-    
+    let request = Request::builder().uri(uri).body(Body::empty()).unwrap();
+
     let response = app.oneshot(request).await.unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    
+
     (status, body.to_vec())
 }
 
-pub async fn make_request_with_method(app: axum::Router, method: &str, uri: &str) -> (StatusCode, Vec<u8>) {
+pub async fn make_request_with_method(
+    app: axum::Router,
+    method: &str,
+    uri: &str,
+) -> (StatusCode, Vec<u8>) {
     let request = Request::builder()
         .method(method)
         .uri(uri)
         .body(Body::empty())
         .unwrap();
-    
+
     let response = app.oneshot(request).await.unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    
+
     (status, body.to_vec())
 }

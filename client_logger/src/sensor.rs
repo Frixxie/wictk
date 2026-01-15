@@ -97,25 +97,28 @@ mod tests {
     #[test]
     fn should_fetch_sensors_successfully() {
         let mut server = Server::new();
-        let mock = server.mock("GET", "/")
+        let mock = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"[
+            .with_body(
+                r#"[
                 {"id": 1, "name": "temperature", "unit": "°C"},
                 {"id": 2, "name": "humidity", "unit": "%"}
-            ]"#)
+            ]"#,
+            )
             .create();
 
         let client = reqwest::blocking::Client::new();
         let result = fetch_sensors(&client, &server.url());
-        
+
         assert!(result.is_ok());
         let sensors = result.unwrap();
         assert_eq!(sensors.len(), 2);
         assert_eq!(sensors[0].id, 1);
         assert_eq!(sensors[0].name, "temperature");
         assert_eq!(sensors[0].unit, "°C");
-        
+
         mock.assert();
     }
 
@@ -136,7 +139,7 @@ mod tests {
             lon: 12,
             lat: 13,
         };
-        
+
         let sensor_ids2 = SensorIds {
             temperature: 1,
             humidity: 2,
@@ -152,7 +155,7 @@ mod tests {
             lon: 12,
             lat: 13,
         };
-        
+
         assert_eq!(sensor_ids1, sensor_ids2);
     }
 
@@ -163,13 +166,13 @@ mod tests {
             name: "temperature".to_string(),
             unit: "°C".to_string(),
         };
-        
+
         let sensor2 = Sensor {
             id: 1,
             name: "temperature".to_string(),
             unit: "°C".to_string(),
         };
-        
+
         assert_eq!(sensor1, sensor2);
     }
 
@@ -180,7 +183,7 @@ mod tests {
             name: "temperature".to_string(),
             unit: "°C".to_string(),
         };
-        
+
         let json = serde_json::to_string(&sensor).unwrap();
         let expected = r#"{"name":"temperature","unit":"°C"}"#;
         assert_eq!(json, expected);
@@ -189,11 +192,13 @@ mod tests {
     #[test]
     fn should_setup_sensors_successfully() {
         let mut server = Server::new();
-        
-        let mock_get = server.mock("GET", "/")
+
+        let mock_get = server
+            .mock("GET", "/")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"[
+            .with_body(
+                r#"[
                 {"id": 1, "name": "temperature", "unit": "°C"},
                 {"id": 2, "name": "humidity", "unit": "%"},
                 {"id": 3, "name": "wind_speed", "unit": "m/s"},
@@ -207,13 +212,14 @@ mod tests {
                 {"id": 11, "name": "visibility", "unit": "m"},
                 {"id": 12, "name": "lon", "unit": "°"},
                 {"id": 13, "name": "lat", "unit": "°"}
-            ]"#)
+            ]"#,
+            )
             .expect(13)
             .create();
 
         let client = reqwest::blocking::Client::new();
         let result = setup_sensors(&client, &server.url());
-        
+
         assert!(result.is_ok());
         let sensor_ids = result.unwrap();
         assert_eq!(sensor_ids.temperature, 1);
@@ -229,7 +235,7 @@ mod tests {
         assert_eq!(sensor_ids.visibility, 11);
         assert_eq!(sensor_ids.lon, 12);
         assert_eq!(sensor_ids.lat, 13);
-        
+
         mock_get.assert();
     }
 }
