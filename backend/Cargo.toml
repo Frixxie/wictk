@@ -13,7 +13,7 @@ chrono = { version = "0.4.43", features = ["serde"] }
 geo = { version = "0.32.0", features = ["serde", "use-serde"] }
 metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
-moka = { version = "0.12.12", features = ["future"] }
+moka = { version = "0.12.13", features = ["future"] }
 redact = { version = "0.1.11", features = ["serde"] }
 reqwest = { version = "0.13.1", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
