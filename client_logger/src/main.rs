@@ -1,16 +1,14 @@
 use anyhow::Result;
+use clap::Parser;
 use device::setup_device;
 use reqwest::blocking::Client;
 use sensor::setup_sensors;
 use storage::{store_lightning, store_met_nowcast, store_openweather_nowcast};
-use structopt::StructOpt;
 use tracing::{instrument, Level};
 use tracing_subscriber::FmtSubscriber;
 use wictk_core::{Lightning, Nowcast};
 
 use rayon::prelude::*;
-
-use crate::measurement::{calculate_temperature_ratio, fetch_measurements};
 
 mod device;
 mod measurement;
@@ -53,21 +51,21 @@ impl From<LogLevel> for Level {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Opts {
-    #[structopt(short, long, required = true)]
+    #[arg(short, long, required = true)]
     locations: Vec<String>,
 
-    #[structopt(short, long, default_value = "http://wictk.frikk.io/")]
+    #[arg(short, long, default_value = "http://wictk.frikk.io/")]
     service_url: String,
 
-    #[structopt(short = "r", long, default_value = "http://hemrs.frikk.io/")]
+    #[arg(short = 'r', long, default_value = "http://hemrs.frikk.io/")]
     hemrs_url: String,
 
-    #[structopt(long)]
+    #[arg(long)]
     store_lightning: bool,
 
-    #[structopt(long, default_value = "info")]
+    #[arg(long, default_value = "info")]
     log_level: LogLevel,
 }
 
@@ -115,7 +113,7 @@ pub fn get_lightnings(client: &Client, url: &str) -> Result<Vec<Lightning>> {
 }
 
 fn main() -> Result<()> {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
 
     let level: Level = opts.log_level.clone().into();
 
@@ -567,9 +565,7 @@ mod tests {
 
     #[test]
     fn should_parse_opts_with_default_values() {
-        use structopt::StructOpt;
-
-        let opts = Opts::from_iter(&["client_logger", "--locations", "Trondheim"]);
+        let opts = Opts::parse_from(["client_logger", "--locations", "Trondheim"]);
         assert_eq!(opts.locations, vec!["Trondheim"]);
         assert_eq!(opts.service_url, "http://wictk.frikk.io/");
         assert_eq!(opts.hemrs_url, "http://hemrs.frikk.io/");
@@ -578,9 +574,7 @@ mod tests {
 
     #[test]
     fn should_parse_opts_with_custom_values() {
-        use structopt::StructOpt;
-
-        let opts = Opts::from_iter(&[
+        let opts = Opts::parse_from([
             "client_logger",
             "--locations",
             "Oslo",

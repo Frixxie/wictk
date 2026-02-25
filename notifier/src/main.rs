@@ -1,7 +1,7 @@
 use anyhow::Result;
+use clap::Parser;
 use reqwest::Client;
 use std::time::Duration;
-use structopt::StructOpt;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use wictk_core::Alert;
@@ -45,15 +45,15 @@ impl From<LogLevel> for Level {
     }
 }
 
-#[derive(Debug, StructOpt, Clone)]
-#[structopt(name = "notifier", about = "Notification CLI for WICTK")]
+#[derive(Debug, Parser, Clone)]
+#[command(name = "notifier", about = "Notification CLI for WICTK")]
 pub struct Opts {
     /// Ntfy server URL
-    #[structopt(short, long, default_value = "https://ntfy.frikk.io", env = "NTFY_URL")]
+    #[arg(short, long, default_value = "https://ntfy.frikk.io", env = "NTFY_URL")]
     ntfy_url: String,
 
     /// WICTK API alerts endpoint
-    #[structopt(
+    #[arg(
         short,
         long,
         default_value = "https://wictk.frikk.io/api/alerts",
@@ -62,25 +62,25 @@ pub struct Opts {
     alerts_url: String,
 
     /// Notification topic
-    #[structopt(short, long, default_value = "weather_alerts", env = "NTFY_TOPIC")]
+    #[arg(short, long, default_value = "weather_alerts", env = "NTFY_TOPIC")]
     topic: String,
 
     /// Log level
-    #[structopt(long, default_value = "info")]
+    #[arg(long, default_value = "info")]
     log_level: LogLevel,
 
     /// Sleep duration between checks (in seconds)
-    #[structopt(short, long, default_value = "120", env = "SLEEP_DURATION")]
+    #[arg(short, long, default_value = "120", env = "SLEEP_DURATION")]
     sleep: u64,
 
     /// Location (city name or coordinates)
-    #[structopt(short, long, default_value = "Trondheim", env = "LOCATION")]
+    #[arg(short, long, default_value = "Trondheim", env = "LOCATION")]
     location: String,
 }
 
 pub async fn get_met_alerts(client: &Client, url: &str, location: &str) -> Result<Vec<Alert>> {
     let resp = client
-        .get(&format!("{url}?location={}", location))
+        .get(format!("{url}?location={}", location))
         .send()
         .await?;
     let alerts: Vec<Alert> = resp.json().await?;
@@ -89,7 +89,7 @@ pub async fn get_met_alerts(client: &Client, url: &str, location: &str) -> Resul
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     let level: Level = opts.log_level.clone().into();
     let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
     let client = reqwest::Client::new();

@@ -1,11 +1,11 @@
 pub mod handlers;
 
 use axum::serve;
+use clap::Parser;
 use handlers::Alerts;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use moka::future::{Cache, CacheBuilder};
 use redact::Secret;
-use structopt::StructOpt;
 use tokio::net::TcpListener;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -37,15 +37,15 @@ impl std::str::FromStr for LogLevel {
     }
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Parser)]
 pub struct Opts {
-    #[structopt(short, long, default_value = "0.0.0.0:3000")]
+    #[arg(short, long, default_value = "0.0.0.0:3000")]
     host: String,
 
-    #[structopt(short, long, env = "OPENWEATHERMAPAPIKEY")]
+    #[arg(short, long, env = "OPENWEATHERMAPAPIKEY")]
     apikey: String,
 
-    #[structopt(short, long, default_value = "info")]
+    #[arg(short, long, default_value = "info")]
     log_level: LogLevel,
 }
 
@@ -94,7 +94,7 @@ impl AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
 
     let level: Level = opts.log_level.into();
 

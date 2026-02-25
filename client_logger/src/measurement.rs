@@ -1,6 +1,5 @@
-use anyhow::Result;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct NewMeasurement {
@@ -19,54 +18,6 @@ impl NewMeasurement {
             measurement,
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Measurement {
-    pub timestamp: DateTime<Utc>,
-    pub value: f32,
-    pub unit: String,
-    pub device_name: String,
-    pub device_location: String,
-    pub sensor_name: String,
-}
-
-pub fn fetch_measurements(
-    client: &reqwest::blocking::Client,
-    url: &str,
-    device_id: i32,
-    sensor_id: i32,
-) -> Result<Measurement> {
-    let full_url = format!("{url}api/devices/{device_id}/sensors/{sensor_id}/measurements/latest");
-    tracing::info!("Fetching measurements from: {}", full_url);
-
-    let response = client.get(&full_url).send()?;
-
-    if response.status().is_success() {
-        let measurement: Measurement = response.json()?;
-        tracing::info!(
-            "Successfully fetched measurement for device {} sensor {}: value={} {} at {} (device: {}, location: {}, sensor: {})",
-            device_id,
-            sensor_id,
-            measurement.value,
-            measurement.unit,
-            measurement.timestamp,
-            measurement.device_name,
-            measurement.device_location,
-            measurement.sensor_name
-        );
-        Ok(measurement)
-    } else {
-        tracing::error!("Failed to fetch measurements: HTTP {}", response.status());
-        Err(anyhow::anyhow!("HTTP error: {}", response.status()))
-    }
-}
-
-pub fn calculate_temperature_ratio(outside_celsius: f32, inside_celsius: f32) -> f32 {
-    const KELVIN: f32 = 273.15;
-    let outside_kelvin = outside_celsius + KELVIN;
-    let inside_kelvin = inside_celsius + KELVIN;
-    inside_kelvin / outside_kelvin
 }
 
 #[cfg(test)]

@@ -11,8 +11,6 @@ pub enum Priority {
     Urgent,
     High,
     Default,
-    Low,
-    Min,
 }
 
 impl Priority {
@@ -21,8 +19,6 @@ impl Priority {
             Priority::Urgent => "urgent",
             Priority::High => "high",
             Priority::Default => "default",
-            Priority::Low => "low",
-            Priority::Min => "min",
         }
     }
 }
@@ -149,7 +145,7 @@ impl NtfyNotifier {
     pub fn add_alert(&mut self, alert: Notification, topic: &str) {
         self.sent_notifications
             .entry(topic.to_string())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(alert);
     }
 }
