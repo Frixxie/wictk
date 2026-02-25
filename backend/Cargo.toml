@@ -7,18 +7,18 @@ homepage = "https://github.com/Frixxie/wictk"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow = "1.0.102"
 axum = { version = "0.8.8", features = ["json", "macros"] }
-chrono = { version = "0.4.43", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 geo = { version = "0.32.0", features = ["serde", "use-serde"] }
 metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
 moka = { version = "0.12.13", features = ["future"] }
 redact = { version = "0.1.11", features = ["serde"] }
-reqwest = { version = "0.13.1", features = ["json"] }
+reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-clap = { version = "4.5.32", features = ["derive", "env"] }
+clap = { version = "4.5.60", features = ["derive", "env"] }
 tokio = { version = "1.49.0", features = ["full", "tracing"] }
 tower = { version = "0.5.3", features = ["full", "tracing"] }
 tower-http = "0.6.8"
