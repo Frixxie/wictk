@@ -56,7 +56,7 @@ pub struct Opts {
     #[arg(
         short,
         long,
-        default_value = "https://wictk.frikk.io/api/alerts",
+        default_value = "http://wictk/api/alerts",
         env = "WICTK_ALERTS_URL"
     )]
     alerts_url: String,
