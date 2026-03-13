@@ -18,12 +18,12 @@ redact = { version = "0.1.11", features = ["serde"] }
 reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-clap = { version = "4.5.60", features = ["derive", "env"] }
+clap = { version = "4.6.0", features = ["derive", "env"] }
 tokio = { version = "1.50.0", features = ["full", "tracing"] }
 tower = { version = "0.5.3", features = ["full", "tracing"] }
 tower-http = "0.6.8"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["json"] }
+tracing-subscriber = { version = "0.3.23", features = ["json"] }
 utoipa = { version = "5", features = ["axum_extras", "chrono"] }
 wictk_core = {path = "../wictk_core"}
 
@@ -32,4 +32,4 @@ pretty_assertions = "1.4.1"
 tokio-test = "0.4.5"
 tower = { version = "0.5.3", features = ["util"] }
 http-body-util = "0.1.3"
-once_cell = "1.21.3"
+once_cell = "1.21.4"
