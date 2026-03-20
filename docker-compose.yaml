@@ -1,7 +1,19 @@
 services:
-  wictk:
-    build: .
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     ports:
       - '3000:3000'
     environment:
       - OPENWEATHERMAPAPIKEY=${OPENWEATHERMAPAPIKEY}
+
+  client_logger:
+    build:
+      context: .
+      dockerfile: Dockerfile.client_logger
+
+  notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifier

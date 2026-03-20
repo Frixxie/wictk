@@ -28,8 +28,47 @@ deploy-backend:
   script:
     - buildah login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - buildah build
-      --tag "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
-    - buildah push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+      -f Dockerfile.backend
+      --tag "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}"
+    - buildah push "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+deploy-client-logger:
+  stage: deploy
+  tags:
+    - docker-build
+  image:
+    name: quay.io/buildah/stable:latest
+    entrypoint: [""]
+  variables:
+    BUILDAH_ISOLATION: chroot
+    BUILDAH_FORMAT: docker
+  script:
+    - buildah login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - buildah build
+      -f Dockerfile.client_logger
+      --tag "${CI_REGISTRY_IMAGE}/client_logger:${CI_COMMIT_TAG}"
+    - buildah push "${CI_REGISTRY_IMAGE}/client_logger:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+
+deploy-notifier:
+  stage: deploy
+  tags:
+    - docker-build
+  image:
+    name: quay.io/buildah/stable:latest
+    entrypoint: [""]
+  variables:
+    BUILDAH_ISOLATION: chroot
+    BUILDAH_FORMAT: docker
+  script:
+    - buildah login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - buildah build
+      -f Dockerfile.notifier
+      --tag "${CI_REGISTRY_IMAGE}/notifier:${CI_COMMIT_TAG}"
+    - buildah push "${CI_REGISTRY_IMAGE}/notifier:${CI_COMMIT_TAG}"
   rules:
     - if: $CI_COMMIT_TAG
 
