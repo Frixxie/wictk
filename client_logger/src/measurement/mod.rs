@@ -1,3 +1,3 @@
-pub mod measurement;
+pub mod types;
 
-pub use measurement::NewMeasurement;
+pub use types::NewMeasurement;

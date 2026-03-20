@@ -1,10 +1,10 @@
 use anyhow::Result;
 
-pub mod sensor;
+pub mod types;
 pub mod sensor_client;
 mod sensor_error;
 
-pub use sensor::{Sensor, SensorIds};
+pub use types::{Sensor, SensorIds};
 pub use sensor_client::SensorClient;
 
 pub trait SensorApi {

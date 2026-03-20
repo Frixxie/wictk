@@ -25,12 +25,12 @@ pub trait StorageApi {
         sensor_ids: &SensorIds,
     ) -> Result<()>;
 
-    async fn store_lightning(
+    async fn store_lightnings(
         &self,
         url: &str,
         device_id: &DeviceId,
         lon_id: i32,
         lat_id: i32,
-        lightning: &wictk_core::Lightning,
+        lightnings: &[wictk_core::Lightning],
     ) -> Result<()>;
 }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::sensor::{Sensor, SensorIds};
+use super::types::{Sensor, SensorIds};
 use super::sensor_error::SensorError;
 use super::SensorApi;
 

@@ -174,35 +174,47 @@ impl StorageApi for StorageClient {
         Ok(())
     }
 
-    async fn store_lightning(
+    async fn store_lightnings(
         &self,
         url: &str,
         device_id: &DeviceId,
         lon_id: i32,
         lat_id: i32,
-        lightning: &wictk_core::Lightning,
+        lightnings: &[wictk_core::Lightning],
     ) -> Result<()> {
-        let measurement_1 = NewMeasurement::new_with_ts(
-            lightning.time,
-            *device_id,
-            lat_id,
-            lightning.location.x() as f32,
-        );
-        let measurement_2 = NewMeasurement::new_with_ts(
-            lightning.time,
-            *device_id,
-            lon_id,
-            lightning.location.y() as f32,
-        );
+        tracing::info!("Storing batch of {} lightning measurements", lightnings.len());
+        let measurements: Vec<NewMeasurement> = lightnings
+            .iter()
+            .flat_map(|lightning| {
+                [
+                    NewMeasurement::new_with_ts(
+                        lightning.time,
+                        *device_id,
+                        lat_id,
+                        lightning.location.x() as f32,
+                    ),
+                    NewMeasurement::new_with_ts(
+                        lightning.time,
+                        *device_id,
+                        lon_id,
+                        lightning.location.y() as f32,
+                    ),
+                ]
+            })
+            .collect();
 
         self.client
             .post(url)
-            .json(&[measurement_1, measurement_2])
+            .json(&measurements)
             .send()
             .await
-            .map_err(|e| StorageError::new(&format!("Failed to store lightning: {e}")))?
+            .map_err(|e| {
+                StorageError::new(&format!("Failed to store lightning batch: {e}"))
+            })?
             .error_for_status()
-            .map_err(|e| StorageError::new(&format!("Failed to store lightning: {e}")))?;
+            .map_err(|e| {
+                StorageError::new(&format!("Failed to store lightning batch: {e}"))
+            })?;
 
         Ok(())
     }
@@ -311,32 +323,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_store_lightning() {
-        let mut server = mockito::Server::new_async().await;
-        let mock = server.mock("POST", "/")
-            .with_status(200)
-            .match_body(mockito::Matcher::JsonString(
-                r#"[{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":10.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":63.0}]"#.to_string()
-            ))
-            .create_async()
-            .await;
-
-        let lightning = wictk_core::Lightning {
-            time: make_timestamp(),
-            location: Point::new(10.0, 63.0),
-            magic_value: 42,
-        };
-
-        let storage_client = make_client();
-        let result = storage_client
-            .store_lightning(&server.url(), &1, 12, 13, &lightning)
-            .await;
-
-        assert!(result.is_ok());
-        mock.assert_async().await;
-    }
-
-    #[tokio::test]
     async fn should_handle_store_met_nowcast_error() {
         let mut server = mockito::Server::new_async().await;
         let mock = server.mock("POST", "/").with_status(500).create_async().await;
@@ -405,19 +391,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_handle_store_lightning_error() {
+    async fn should_store_lightnings() {
         let mut server = mockito::Server::new_async().await;
-        let mock = server.mock("POST", "/").with_status(500).create_async().await;
+        let mock = server
+            .mock("POST", "/")
+            .with_status(200)
+            .match_body(mockito::Matcher::JsonString(
+                r#"[{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":10.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":63.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":11.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":64.0}]"#.to_string()
+            ))
+            .create_async()
+            .await;
 
-        let lightning = wictk_core::Lightning {
-            time: make_timestamp(),
-            location: Point::new(10.0, 63.0),
-            magic_value: 42,
-        };
+        let lightnings = vec![
+            wictk_core::Lightning {
+                time: make_timestamp(),
+                location: Point::new(10.0, 63.0),
+                magic_value: 42,
+            },
+            wictk_core::Lightning {
+                time: make_timestamp(),
+                location: Point::new(11.0, 64.0),
+                magic_value: 43,
+            },
+        ];
 
         let storage_client = make_client();
         let result = storage_client
-            .store_lightning(&server.url(), &1, 12, 13, &lightning)
+            .store_lightnings(&server.url(), &1, 12, 13, &lightnings)
+            .await;
+
+        assert!(result.is_ok());
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_handle_store_lightnings_error() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server.mock("POST", "/").with_status(500).create_async().await;
+
+        let lightnings = vec![
+            wictk_core::Lightning {
+                time: make_timestamp(),
+                location: Point::new(10.0, 63.0),
+                magic_value: 42,
+            },
+        ];
+
+        let storage_client = make_client();
+        let result = storage_client
+            .store_lightnings(&server.url(), &1, 12, 13, &lightnings)
             .await;
 
         assert!(

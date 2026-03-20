@@ -209,31 +209,19 @@ async fn main() -> Result<()> {
     );
 
     let storage_url = format!("{}api/measurements", opts.service_url);
-    // Store lightning data sequentially using async client
-    for (index, lightning) in recent_lightnings.iter().enumerate() {
-        tracing::debug!(
-            "Storing lightning {} of {}, time: {}",
-            index + 1,
-            recent_lightnings.len(),
-            lightning.time
-        );
-        if let Err(e) = storage_client
-            .store_lightning(
-                &storage_url,
-                &device_lightning,
-                sensors.lon,
-                sensors.lat,
-                lightning,
-            )
-            .await
-        {
-            tracing::error!(
-                "Failed to store lightning {} of {}: {}",
-                index + 1,
-                recent_lightnings.len(),
-                e
-            );
-        }
+    let recent_lightnings: Vec<Lightning> = recent_lightnings.into_iter().cloned().collect();
+    if let Err(e) = storage_client
+        .store_lightnings(
+            &storage_url,
+            &device_lightning,
+            sensors.lon,
+            sensors.lat,
+            &recent_lightnings,
+        )
+        .await
+    {
+        tracing::error!("Failed to store lightning batch: {}", e);
+        return Err(e);
     }
 
     tracing::info!("Stored {} lightning records", recent_lightnings.len());

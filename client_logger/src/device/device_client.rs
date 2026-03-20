@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::device::Device;
+use super::types::Device;
 use super::device_error::DeviceError;
 use super::{DeviceApi, DeviceId};
 
