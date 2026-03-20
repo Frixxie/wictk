@@ -1,0 +1,36 @@
+use anyhow::Result;
+
+use crate::device::DeviceId;
+use crate::sensor::SensorIds;
+
+pub mod storage_client;
+mod storage_error;
+
+pub use storage_client::StorageClient;
+
+pub trait StorageApi {
+    async fn store_met_nowcast(
+        &self,
+        url: &str,
+        met_nowcast: &wictk_core::MetNowcast,
+        device_id: &DeviceId,
+        sensor_ids: &SensorIds,
+    ) -> Result<()>;
+
+    async fn store_openweather_nowcast(
+        &self,
+        url: &str,
+        open_weather_nowcast: &wictk_core::OpenWeatherNowcast,
+        device_id: &DeviceId,
+        sensor_ids: &SensorIds,
+    ) -> Result<()>;
+
+    async fn store_lightning(
+        &self,
+        url: &str,
+        device_id: &DeviceId,
+        lon_id: i32,
+        lat_id: i32,
+        lightning: &wictk_core::Lightning,
+    ) -> Result<()>;
+}

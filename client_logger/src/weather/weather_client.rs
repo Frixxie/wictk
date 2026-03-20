@@ -1,0 +1,397 @@
+use anyhow::Result;
+use tracing::instrument;
+
+use super::weather_error::WeatherError;
+use super::WeatherApi;
+
+pub struct WeatherClient {
+    client: reqwest::Client,
+}
+
+impl WeatherClient {
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
+impl WeatherApi for WeatherClient {
+    #[instrument(skip(self), fields(url = %url, location = %location))]
+    async fn get_nowcast(
+        &self,
+        url: &str,
+        location: &str,
+    ) -> Result<Vec<wictk_core::Nowcast>> {
+        tracing::debug!("Fetching nowcast data");
+        let full_url = format!("{url}api/nowcasts?location={location}");
+        tracing::info!("Requesting nowcast data from: {}", full_url);
+
+        let response = self
+            .client
+            .get(&full_url)
+            .send()
+            .await
+            .map_err(|e| WeatherError::new(&format!("Failed to fetch nowcast data: {e}")))?;
+
+        tracing::debug!("Response status: {}", response.status());
+
+        if response.status().is_success() {
+            let nowcasts: Vec<wictk_core::Nowcast> = response
+                .json()
+                .await
+                .map_err(|e| {
+                    WeatherError::new(&format!("Failed to parse nowcast response: {e}"))
+                })?;
+            tracing::info!("Successfully fetched {} nowcast records", nowcasts.len());
+            Ok(nowcasts)
+        } else {
+            tracing::error!("Failed to fetch nowcast data: HTTP {}", response.status());
+            Err(WeatherError::new(&format!("HTTP error: {}", response.status())).into())
+        }
+    }
+
+    #[instrument(skip(self), fields(url = %url))]
+    async fn get_lightnings(&self, url: &str) -> Result<Vec<wictk_core::Lightning>> {
+        tracing::debug!("Fetching lightning data");
+        let full_url = format!("{url}api/recent_lightning");
+        tracing::info!("Requesting lightning data from: {}", full_url);
+
+        let response = self
+            .client
+            .get(&full_url)
+            .send()
+            .await
+            .map_err(|e| WeatherError::new(&format!("Failed to fetch lightning data: {e}")))?;
+
+        tracing::debug!("Response status: {}", response.status());
+
+        if response.status().is_success() {
+            let lightnings: Vec<wictk_core::Lightning> = response
+                .json()
+                .await
+                .map_err(|e| {
+                    WeatherError::new(&format!("Failed to parse lightning response: {e}"))
+                })?;
+            tracing::info!(
+                "Successfully fetched {} lightning records",
+                lightnings.len()
+            );
+            Ok(lightnings)
+        } else {
+            tracing::error!("Failed to fetch lightning data: HTTP {}", response.status());
+            Err(WeatherError::new(&format!("HTTP error: {}", response.status())).into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wictk_core::Nowcast;
+
+    fn make_client() -> WeatherClient {
+        WeatherClient::new(reqwest::Client::new())
+    }
+
+    #[tokio::test]
+    async fn should_get_nowcast_successfully() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/nowcasts")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "location".into(),
+                "Trondheim".into(),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {
+                    "met": {
+                        "time": "2025-08-11T12:00:00Z",
+                        "location": {"lon": 10.0, "lat": 63.0},
+                        "description": "Clear",
+                        "air_temperature": 20.5,
+                        "relative_humidity": 65.0,
+                        "precipitation_rate": 0.0,
+                        "precipitation_amount": 0.0,
+                        "wind_speed": 5.2,
+                        "wind_speed_gust": 6.0,
+                        "wind_from_direction": 180.0
+                    }
+                }
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_nowcast(&format!("{}/", server.url()), "Trondheim")
+            .await;
+
+        assert!(result.is_ok());
+        let nowcasts = result.unwrap();
+        assert_eq!(nowcasts.len(), 1);
+
+        match &nowcasts[0] {
+            Nowcast::Met(met) => {
+                assert_eq!(met.air_temperature, 20.5);
+                assert_eq!(met.relative_humidity, 65.0);
+                assert_eq!(met.wind_speed, 5.2);
+                assert_eq!(met.wind_from_direction, 180.0);
+            }
+            _ => panic!("Expected Met nowcast"),
+        }
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_handle_empty_nowcast_response() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/nowcasts")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "location".into(),
+                "TestLocation".into(),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_nowcast(&format!("{}/", server.url()), "TestLocation")
+            .await;
+
+        assert!(result.is_ok());
+        let nowcasts = result.unwrap();
+        assert_eq!(nowcasts.len(), 0);
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_handle_nowcast_server_error() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/nowcasts")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "location".into(),
+                "ErrorLocation".into(),
+            ))
+            .with_status(500)
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_nowcast(&format!("{}/", server.url()), "ErrorLocation")
+            .await;
+
+        assert!(result.is_err());
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_get_lightnings_successfully() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/recent_lightning")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {
+                    "time": "2025-08-11T12:00:00Z",
+                    "location": {
+                        "x": 10.0,
+                        "y": 63.0
+                    },
+                    "magic_value": 42
+                }
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_lightnings(&format!("{}/", server.url()))
+            .await;
+
+        assert!(result.is_ok());
+        let lightnings = result.unwrap();
+        assert_eq!(lightnings.len(), 1);
+
+        let lightning = &lightnings[0];
+        assert_eq!(lightning.location.x(), 10.0);
+        assert_eq!(lightning.location.y(), 63.0);
+        assert_eq!(lightning.magic_value, 42);
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_handle_empty_lightnings_response() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/recent_lightning")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_lightnings(&format!("{}/", server.url()))
+            .await;
+
+        assert!(result.is_ok());
+        let lightnings = result.unwrap();
+        assert_eq!(lightnings.len(), 0);
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_handle_lightnings_server_error() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/recent_lightning")
+            .with_status(500)
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_lightnings(&format!("{}/", server.url()))
+            .await;
+
+        assert!(result.is_err());
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_get_nowcast_with_multiple_types() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/nowcasts")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "location".into(),
+                "Mixed".into(),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {
+                    "met": {
+                        "time": "2025-08-11T12:00:00Z",
+                        "location": {"lon": 10.0, "lat": 63.0},
+                        "description": "Clear",
+                        "air_temperature": 20.5,
+                        "relative_humidity": 65.0,
+                        "precipitation_rate": 0.0,
+                        "precipitation_amount": 0.0,
+                        "wind_speed": 5.2,
+                        "wind_speed_gust": 6.0,
+                        "wind_from_direction": 180.0
+                    }
+                },
+                {
+                    "open_weather": {
+                        "dt": "2025-08-11T13:00:00Z",
+                        "name": "Mixed",
+                        "country": "NO",
+                        "lon": 10.0,
+                        "lat": 63.0,
+                        "main": "Clouds",
+                        "desc": "few clouds",
+                        "clouds": 20,
+                        "wind_speed": 4.1,
+                        "wind_deg": 200,
+                        "visibility": 10000,
+                        "temp": 22.3,
+                        "feels_like": 23.0,
+                        "humidity": 70,
+                        "pressure": 1013
+                    }
+                }
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_nowcast(&format!("{}/", server.url()), "Mixed")
+            .await;
+
+        assert!(result.is_ok());
+        let nowcasts = result.unwrap();
+        assert_eq!(nowcasts.len(), 2);
+
+        let has_met = nowcasts.iter().any(|n| matches!(n, Nowcast::Met(_)));
+        let has_open_weather = nowcasts
+            .iter()
+            .any(|n| matches!(n, Nowcast::OpenWeather(_)));
+        assert!(has_met);
+        assert!(has_open_weather);
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_get_lightnings_with_multiple_entries() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/recent_lightning")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {
+                    "time": "2025-08-11T12:00:00Z",
+                    "location": {
+                        "x": 10.0,
+                        "y": 63.0
+                    },
+                    "magic_value": 42
+                },
+                {
+                    "time": "2025-08-11T12:05:00Z",
+                    "location": {
+                        "x": 11.0,
+                        "y": 64.0
+                    },
+                    "magic_value": 24
+                }
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let weather_client = make_client();
+        let result = weather_client
+            .get_lightnings(&format!("{}/", server.url()))
+            .await;
+
+        assert!(result.is_ok());
+        let lightnings = result.unwrap();
+        assert_eq!(lightnings.len(), 2);
+
+        assert_eq!(lightnings[0].location.x(), 10.0);
+        assert_eq!(lightnings[0].location.y(), 63.0);
+        assert_eq!(lightnings[0].magic_value, 42);
+
+        assert_eq!(lightnings[1].location.x(), 11.0);
+        assert_eq!(lightnings[1].location.y(), 64.0);
+        assert_eq!(lightnings[1].magic_value, 24);
+
+        mock.assert_async().await;
+    }
+}
