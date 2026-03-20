@@ -4,7 +4,6 @@ use crate::device::DeviceId;
 use crate::sensor::SensorIds;
 
 pub mod storage_client;
-mod storage_error;
 
 pub use storage_client::StorageClient;
 

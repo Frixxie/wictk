@@ -1,7 +1,6 @@
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use tracing::instrument;
 
-use super::weather_error::WeatherError;
 use super::WeatherApi;
 
 pub struct WeatherClient {
@@ -30,7 +29,7 @@ impl WeatherApi for WeatherClient {
             .get(&full_url)
             .send()
             .await
-            .map_err(|e| WeatherError::new(&format!("Failed to fetch nowcast data: {e}")))?;
+            .context("Failed to fetch nowcast data")?;
 
         tracing::debug!("Response status: {}", response.status());
 
@@ -38,14 +37,12 @@ impl WeatherApi for WeatherClient {
             let nowcasts: Vec<wictk_core::Nowcast> = response
                 .json()
                 .await
-                .map_err(|e| {
-                    WeatherError::new(&format!("Failed to parse nowcast response: {e}"))
-                })?;
+                .context("Failed to parse nowcast response")?;
             tracing::info!("Successfully fetched {} nowcast records", nowcasts.len());
             Ok(nowcasts)
         } else {
             tracing::error!("Failed to fetch nowcast data: HTTP {}", response.status());
-            Err(WeatherError::new(&format!("HTTP error: {}", response.status())).into())
+            bail!("HTTP error: {}", response.status())
         }
     }
 
@@ -60,7 +57,7 @@ impl WeatherApi for WeatherClient {
             .get(&full_url)
             .send()
             .await
-            .map_err(|e| WeatherError::new(&format!("Failed to fetch lightning data: {e}")))?;
+            .context("Failed to fetch lightning data")?;
 
         tracing::debug!("Response status: {}", response.status());
 
@@ -68,9 +65,7 @@ impl WeatherApi for WeatherClient {
             let lightnings: Vec<wictk_core::Lightning> = response
                 .json()
                 .await
-                .map_err(|e| {
-                    WeatherError::new(&format!("Failed to parse lightning response: {e}"))
-                })?;
+                .context("Failed to parse lightning response")?;
             tracing::info!(
                 "Successfully fetched {} lightning records",
                 lightnings.len()
@@ -78,7 +73,7 @@ impl WeatherApi for WeatherClient {
             Ok(lightnings)
         } else {
             tracing::error!("Failed to fetch lightning data: HTTP {}", response.status());
-            Err(WeatherError::new(&format!("HTTP error: {}", response.status())).into())
+            bail!("HTTP error: {}", response.status())
         }
     }
 }

@@ -1,7 +1,6 @@
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 
 use super::types::Device;
-use super::device_error::DeviceError;
 use super::{DeviceApi, DeviceId};
 
 pub struct DeviceClient {
@@ -21,12 +20,12 @@ impl DeviceApi for DeviceClient {
             .get(url)
             .send()
             .await
-            .map_err(|e| DeviceError::new(&format!("Failed to fetch devices: {e}")))?;
+            .context("Failed to fetch devices")?;
 
         let devices = response
             .json::<Vec<Device>>()
             .await
-            .map_err(|e| DeviceError::new(&format!("Failed to parse devices response: {e}")))?;
+            .context("Failed to parse devices response")?;
 
         Ok(devices)
     }
@@ -60,7 +59,7 @@ impl DeviceApi for DeviceClient {
                     .json(&new_device)
                     .send()
                     .await
-                    .map_err(|e| DeviceError::new(&format!("Failed to create device: {e}")))?;
+                    .context("Failed to create device")?;
 
                 tracing::info!("Created new device: {:?}", response);
 
@@ -70,7 +69,7 @@ impl DeviceApi for DeviceClient {
                     .find(|d| d.name == device_name && d.location == device_location)
                     .map(|d| d.id)
                     .ok_or_else(|| {
-                        DeviceError::new("Device not found after creation").into()
+                        anyhow!("Device not found after creation")
                     })
             }
         }

@@ -30,13 +30,13 @@ async fn main() -> Result<()> {
 
     // Setup sensors (global, not per location)
     let setup_start = std::time::Instant::now();
-    let sensor_url = format!("{}api/sensors", opts.service_url);
+    let sensor_url = format!("{}api/sensors", opts.hemrs_url);
     let sensors: SensorIds = sensor_client.setup_sensors(&sensor_url).await?;
 
     // Setup lightning device (global)
-    let device_url = format!("{}api/devices", opts.service_url);
+    let device_url = format!("{}api/devices", opts.hemrs_url);
     let device_lightning: device::DeviceId = device_client
-        .setup_device(&device_url, "lightning", "global")
+        .setup_device(&device_url, "wictk_lightning", "Mobile")
         .await?;
 
     let setup_elapsed = setup_start.elapsed();
@@ -76,20 +76,52 @@ async fn main() -> Result<()> {
         }
 
         // Setup devices for this location
-        let device_met: device::DeviceId = device_client
-            .setup_device(&device_url, "met", location)
-            .await?;
+        let device_met: device::DeviceId = match device_client
+            .setup_device(&device_url, "wictk_met", location)
+            .await
+        {
+            Ok(device_id) => {
+                tracing::info!(
+                    "MET device setup completed for {} (ID: {})",
+                    location,
+                    device_id
+                );
+                device_id
+            }
+            Err(e) => {
+                tracing::error!("Failed to setup MET device for {}: {}", location, e);
+                continue;
+            }
+        };
 
-        let device_opm: device::DeviceId = device_client
-            .setup_device(&device_url, "openweathermap", location)
-            .await?;
+        let device_opm: device::DeviceId = match device_client
+            .setup_device(&device_url, "wictk_opm", location)
+            .await
+        {
+            Ok(device_id) => {
+                tracing::info!(
+                    "OpenWeatherMap device setup completed for {} (ID: {})",
+                    location,
+                    device_id
+                );
+                device_id
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to setup OpenWeatherMap device for {}: {}",
+                    location,
+                    e
+                );
+                continue;
+            }
+        };
 
         // Log the first nowcast for debugging
         if let Some(first_nowcast) = nowcasts.first() {
             tracing::info!("First nowcast for {}: {}", location, first_nowcast);
         }
 
-        let storage_url = format!("{}api/measurements", opts.service_url);
+        let storage_url = format!("{}api/measurements", opts.hemrs_url);
         let storage_start = std::time::Instant::now();
         let mut met_count = 0;
         let mut opm_count = 0;
@@ -208,9 +240,9 @@ async fn main() -> Result<()> {
         recent_lightnings.len()
     );
 
-    let storage_url = format!("{}api/measurements", opts.service_url);
+    let storage_url = format!("{}api/measurements", opts.hemrs_url);
     let recent_lightnings: Vec<Lightning> = recent_lightnings.into_iter().cloned().collect();
-    if let Err(e) = storage_client
+    match storage_client
         .store_lightnings(
             &storage_url,
             &device_lightning,
@@ -220,11 +252,13 @@ async fn main() -> Result<()> {
         )
         .await
     {
-        tracing::error!("Failed to store lightning batch: {}", e);
-        return Err(e);
+        Ok(()) => {
+            tracing::info!("Stored {} lightning records", recent_lightnings.len());
+        }
+        Err(e) => {
+            tracing::error!("Failed to store lightning batch: {}", e);
+        }
     }
-
-    tracing::info!("Stored {} lightning records", recent_lightnings.len());
 
     Ok(())
 }

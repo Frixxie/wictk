@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 pub mod weather_client;
-mod weather_error;
 
 pub use weather_client::WeatherClient;
 

@@ -2,7 +2,6 @@ use anyhow::Result;
 
 pub mod types;
 pub mod device_client;
-mod device_error;
 
 pub use types::Device;
 pub use device_client::DeviceClient;

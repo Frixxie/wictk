@@ -1,10 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::device::DeviceId;
 use crate::measurement::NewMeasurement;
 use crate::sensor::SensorIds;
 
-use super::storage_error::StorageError;
 use super::StorageApi;
 
 pub struct StorageClient {
@@ -82,9 +81,9 @@ impl StorageApi for StorageClient {
             ])
             .send()
             .await
-            .map_err(|e| StorageError::new(&format!("Failed to store MET nowcast: {e}")))?
+            .context("Failed to store MET nowcast")?
             .error_for_status()
-            .map_err(|e| StorageError::new(&format!("Failed to store MET nowcast: {e}")))?;
+            .context("Failed to store MET nowcast")?;
 
         Ok(())
     }
@@ -163,13 +162,9 @@ impl StorageApi for StorageClient {
             ])
             .send()
             .await
-            .map_err(|e| {
-                StorageError::new(&format!("Failed to store OpenWeather nowcast: {e}"))
-            })?
+            .context("Failed to store OpenWeather nowcast")?
             .error_for_status()
-            .map_err(|e| {
-                StorageError::new(&format!("Failed to store OpenWeather nowcast: {e}"))
-            })?;
+            .context("Failed to store OpenWeather nowcast")?;
 
         Ok(())
     }
@@ -191,13 +186,13 @@ impl StorageApi for StorageClient {
                         lightning.time,
                         *device_id,
                         lat_id,
-                        lightning.location.x() as f32,
+                        lightning.location.y() as f32,
                     ),
                     NewMeasurement::new_with_ts(
                         lightning.time,
                         *device_id,
                         lon_id,
-                        lightning.location.y() as f32,
+                        lightning.location.x() as f32,
                     ),
                 ]
             })
@@ -208,13 +203,9 @@ impl StorageApi for StorageClient {
             .json(&measurements)
             .send()
             .await
-            .map_err(|e| {
-                StorageError::new(&format!("Failed to store lightning batch: {e}"))
-            })?
+            .context("Failed to store lightning batch")?
             .error_for_status()
-            .map_err(|e| {
-                StorageError::new(&format!("Failed to store lightning batch: {e}"))
-            })?;
+            .context("Failed to store lightning batch")?;
 
         Ok(())
     }
@@ -397,7 +388,7 @@ mod tests {
             .mock("POST", "/")
             .with_status(200)
             .match_body(mockito::Matcher::JsonString(
-                r#"[{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":10.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":63.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":11.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":64.0}]"#.to_string()
+                r#"[{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":63.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":10.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":13,"measurement":64.0},{"timestamp":"2025-08-11T12:00:00Z","device":1,"sensor":12,"measurement":11.0}]"#.to_string()
             ))
             .create_async()
             .await;

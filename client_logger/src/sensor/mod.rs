@@ -2,7 +2,6 @@ use anyhow::Result;
 
 pub mod types;
 pub mod sensor_client;
-mod sensor_error;
 
 pub use types::{Sensor, SensorIds};
 pub use sensor_client::SensorClient;

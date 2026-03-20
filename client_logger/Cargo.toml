@@ -11,7 +11,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 clap = { version = "4.6.0", features = ["derive", "env"] }
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["json"] }
+tracing-subscriber = "0.3.23"
 wictk_core = {path = "../wictk_core"}
 tokio = { version = "1.50.0", features = ["full", "tracing"] }
 
@@ -19,4 +19,3 @@ tokio = { version = "1.50.0", features = ["full", "tracing"] }
 mockito = "1.7.2"
 geo = "0.32.0"
 quickcheck = "1"
-quickcheck_macros = "1"

@@ -1,7 +1,6 @@
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 
 use super::types::{Sensor, SensorIds};
-use super::sensor_error::SensorError;
 use super::SensorApi;
 
 pub struct SensorClient {
@@ -21,12 +20,12 @@ impl SensorApi for SensorClient {
             .get(url)
             .send()
             .await
-            .map_err(|e| SensorError::new(&format!("Failed to fetch sensors: {e}")))?;
+            .context("Failed to fetch sensors")?;
 
         let sensors = response
             .json::<Vec<Sensor>>()
             .await
-            .map_err(|e| SensorError::new(&format!("Failed to parse sensors response: {e}")))?;
+            .context("Failed to parse sensors response")?;
 
         Ok(sensors)
     }
@@ -58,7 +57,7 @@ impl SensorApi for SensorClient {
                     .json(&new_sensor)
                     .send()
                     .await
-                    .map_err(|e| SensorError::new(&format!("Failed to create sensor: {e}")))?;
+                    .context("Failed to create sensor")?;
 
                 tracing::info!("Created new sensor: {:?}", response);
 
@@ -67,7 +66,7 @@ impl SensorApi for SensorClient {
                     .iter()
                     .find(|s| s.name == sensor_name)
                     .map(|s| s.id)
-                    .ok_or_else(|| SensorError::new("Sensor not found after creation").into())
+                    .ok_or_else(|| anyhow!("Sensor not found after creation"))
             }
         }
     }
