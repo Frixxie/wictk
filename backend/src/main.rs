@@ -1,6 +1,7 @@
 pub mod handlers;
 
 use axum::serve;
+use anyhow::Context;
 use clap::Parser;
 use handlers::Alerts;
 use metrics_exporter_prometheus::PrometheusBuilder;
@@ -119,8 +120,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let app = setup_router(app_state, metrics_handler);
 
-    let listener = TcpListener::bind(opts.host).await?;
-    serve(listener, app).await?;
+    let host = opts.host;
+    let listener = TcpListener::bind(&host)
+        .await
+        .with_context(|| format!("Failed to bind TCP listener on {host}"))?;
+    serve(listener, app)
+        .await
+        .with_context(|| format!("HTTP server failed while serving on {host}"))?;
 
     Ok(())
 }

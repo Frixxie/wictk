@@ -81,9 +81,9 @@ impl StorageApi for StorageClient {
             ])
             .send()
             .await
-            .context("Failed to store MET nowcast")?
+            .with_context(|| format!("Failed to send MET nowcast measurements to {url}"))?
             .error_for_status()
-            .context("Failed to store MET nowcast")?;
+            .with_context(|| format!("Storage service rejected MET nowcast measurements at {url}"))?;
 
         Ok(())
     }
@@ -162,9 +162,9 @@ impl StorageApi for StorageClient {
             ])
             .send()
             .await
-            .context("Failed to store OpenWeather nowcast")?
+            .with_context(|| format!("Failed to send OpenWeather nowcast measurements to {url}"))?
             .error_for_status()
-            .context("Failed to store OpenWeather nowcast")?;
+            .with_context(|| format!("Storage service rejected OpenWeather nowcast measurements at {url}"))?;
 
         Ok(())
     }
@@ -203,9 +203,9 @@ impl StorageApi for StorageClient {
             .json(&measurements)
             .send()
             .await
-            .context("Failed to store lightning batch")?
+            .with_context(|| format!("Failed to send lightning batch to {url}"))?
             .error_for_status()
-            .context("Failed to store lightning batch")?;
+            .with_context(|| format!("Storage service rejected lightning batch at {url}"))?;
 
         Ok(())
     }

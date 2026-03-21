@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use reqwest::Client;
 use std::time::Duration;
@@ -82,8 +82,12 @@ pub async fn get_met_alerts(client: &Client, url: &str, location: &str) -> Resul
     let resp = client
         .get(format!("{url}?location={}", location))
         .send()
-        .await?;
-    let alerts: Vec<Alert> = resp.json().await?;
+        .await
+        .with_context(|| format!("Failed to fetch alerts for location '{location}' from {url}"))?;
+    let alerts: Vec<Alert> = resp
+        .json()
+        .await
+        .with_context(|| format!("Failed to parse alerts response for location '{location}' from {url}"))?;
     Ok(alerts)
 }
 

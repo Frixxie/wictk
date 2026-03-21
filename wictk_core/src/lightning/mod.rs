@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use geo::Point;
 use reqwest::Client;
@@ -39,7 +39,14 @@ impl Lightning {
     }
 
     pub async fn find_ligntning(client: &Client, url: &str) -> Result<Vec<Lightning>> {
-        let response = client.get(url).send().await?.json::<Value>().await?;
+        let response = client
+            .get(url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to fetch lightning data from {url}"))?
+            .json::<Value>()
+            .await
+            .with_context(|| format!("Failed to decode lightning response from {url}"))?;
         let response_string = response
             .get("historicalData")
             .ok_or_else(|| {
@@ -50,7 +57,7 @@ impl Lightning {
         let data = response_string.trim_matches('"');
 
         let lightning_data: Value = serde_json::from_str(data)
-            .map_err(|e| anyhow::anyhow!("Failed to parse lightning data: {}", e))?;
+            .with_context(|| format!("Failed to parse 'historicalData' payload from {url}"))?;
 
         let lightning_data = lightning_data
             .as_array()
