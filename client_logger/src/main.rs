@@ -23,8 +23,8 @@ async fn main() -> Result<()> {
     let client = reqwest::Client::new();
     tracing::info!("HTTP client initialized successfully");
 
-    let device_client = DeviceClient::new(client.clone());
-    let sensor_client = SensorClient::new(client.clone());
+    let mut device_client = DeviceClient::new(client.clone());
+    let mut sensor_client = SensorClient::new(client.clone());
     let storage_client = StorageClient::new(client.clone());
     let weather_client = WeatherClient::new(client.clone());
 

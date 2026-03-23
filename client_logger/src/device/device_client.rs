@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{anyhow, Context, Result};
 
 use super::types::Device;
@@ -5,16 +7,24 @@ use super::{DeviceApi, DeviceId};
 
 pub struct DeviceClient {
     client: reqwest::Client,
+    cache: BTreeMap<String, Device>,
 }
 
 impl DeviceClient {
     pub fn new(client: reqwest::Client) -> Self {
-        Self { client }
+        Self {
+            client,
+            cache: BTreeMap::new(),
+        }
+    }
+
+    pub fn lookup_device(&self, name: &str) -> Option<&Device> {
+        self.cache.get(name)
     }
 }
 
 impl DeviceApi for DeviceClient {
-    async fn get_devices(&self, url: &str) -> Result<Vec<Device>> {
+    async fn get_devices(&mut self, url: &str) -> Result<Vec<Device>> {
         let response = self
             .client
             .get(url)
@@ -27,11 +37,15 @@ impl DeviceApi for DeviceClient {
             .await
             .context("Failed to parse devices response")?;
 
+        for device in &devices {
+            self.cache.insert(device.name.clone(), device.clone());
+        }
+
         Ok(devices)
     }
 
     async fn setup_device(
-        &self,
+        &mut self,
         url: &str,
         device_name: &str,
         device_location: &str,
@@ -100,7 +114,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client.get_devices(&server.url()).await;
 
         assert!(result.is_ok());
@@ -131,7 +145,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client
             .setup_device(&server.url(), "existing_device", "test_location")
             .await;
@@ -173,7 +187,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client
             .setup_device(&server.url(), "new_device", "new_location")
             .await;
@@ -212,7 +226,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client
             .setup_device(&server.url(), "ghost_device", "nowhere")
             .await;
@@ -235,7 +249,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client.get_devices(&server.url()).await;
 
         assert!(result.is_err());
@@ -259,7 +273,7 @@ mod tests {
             .create_async()
             .await;
 
-        let device_client = make_client();
+        let mut device_client = make_client();
         let result = device_client
             .setup_device(&server.url(), "any_device", "any_location")
             .await;
@@ -270,6 +284,97 @@ mod tests {
             err_msg.contains("Failed to parse devices response"),
             "Expected parse error propagated from get_devices, got: {err_msg}"
         );
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_populate_cache_after_get_devices() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {"id": 1, "name": "test_device", "location": "test_location"},
+                {"id": 2, "name": "another_device", "location": "another_location"}
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let mut device_client = make_client();
+        assert!(device_client.lookup_device("test_device").is_none());
+
+        device_client.get_devices(&server.url()).await.unwrap();
+
+        let cached = device_client.lookup_device("test_device");
+        assert!(cached.is_some());
+        let device = cached.unwrap();
+        assert_eq!(device.id, 1);
+        assert_eq!(device.name, "test_device");
+        assert_eq!(device.location, "test_location");
+
+        let cached = device_client.lookup_device("another_device");
+        assert!(cached.is_some());
+        let device = cached.unwrap();
+        assert_eq!(device.id, 2);
+        assert_eq!(device.name, "another_device");
+        assert_eq!(device.location, "another_location");
+
+        assert!(device_client.lookup_device("nonexistent").is_none());
+
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_update_cache_on_subsequent_get_devices() {
+        let mut server = mockito::Server::new_async().await;
+
+        let mock_first = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id": 1, "name": "test_device", "location": "old_location"}]"#)
+            .create_async()
+            .await;
+
+        let mock_second = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id": 1, "name": "test_device", "location": "new_location"}]"#)
+            .create_async()
+            .await;
+
+        let mut device_client = make_client();
+
+        device_client.get_devices(&server.url()).await.unwrap();
+        assert_eq!(device_client.lookup_device("test_device").unwrap().location, "old_location");
+
+        device_client.get_devices(&server.url()).await.unwrap();
+        assert_eq!(device_client.lookup_device("test_device").unwrap().location, "new_location");
+
+        mock_first.assert_async().await;
+        mock_second.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_not_populate_cache_on_failed_get_devices() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("not valid json")
+            .create_async()
+            .await;
+
+        let mut device_client = make_client();
+        let _ = device_client.get_devices(&server.url()).await;
+
+        assert!(device_client.lookup_device("test_device").is_none());
 
         mock.assert_async().await;
     }
