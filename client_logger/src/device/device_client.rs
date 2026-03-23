@@ -18,8 +18,10 @@ impl DeviceClient {
         }
     }
 
-    pub fn lookup_device(&self, name: &str) -> Option<&Device> {
-        self.cache.get(name)
+    pub fn lookup_device(&self, name: &str, location: &str) -> Option<&Device> {
+        self.cache
+            .get(name)
+            .filter(|d| d.location == location)
     }
 }
 
@@ -50,11 +52,9 @@ impl DeviceApi for DeviceClient {
         device_name: &str,
         device_location: &str,
     ) -> Result<DeviceId> {
-        if let Some(cached) = self.cache.get(device_name) {
-            if cached.location == device_location {
-                tracing::info!("Found cached device: {:?}", cached);
-                return Ok(cached.id);
-            }
+        if let Some(cached) = self.lookup_device(device_name, device_location) {
+            tracing::info!("Found cached device: {:?}", cached);
+            return Ok(cached.id);
         }
 
         let devices = self.get_devices(url).await?;
@@ -312,25 +312,25 @@ mod tests {
             .await;
 
         let mut device_client = make_client();
-        assert!(device_client.lookup_device("test_device").is_none());
+        assert!(device_client.lookup_device("test_device", "test_location").is_none());
 
         device_client.get_devices(&server.url()).await.unwrap();
 
-        let cached = device_client.lookup_device("test_device");
+        let cached = device_client.lookup_device("test_device", "test_location");
         assert!(cached.is_some());
         let device = cached.unwrap();
         assert_eq!(device.id, 1);
         assert_eq!(device.name, "test_device");
         assert_eq!(device.location, "test_location");
 
-        let cached = device_client.lookup_device("another_device");
+        let cached = device_client.lookup_device("another_device", "another_location");
         assert!(cached.is_some());
         let device = cached.unwrap();
         assert_eq!(device.id, 2);
         assert_eq!(device.name, "another_device");
         assert_eq!(device.location, "another_location");
 
-        assert!(device_client.lookup_device("nonexistent").is_none());
+        assert!(device_client.lookup_device("nonexistent", "nowhere").is_none());
 
         mock.assert_async().await;
     }
@@ -358,10 +358,10 @@ mod tests {
         let mut device_client = make_client();
 
         device_client.get_devices(&server.url()).await.unwrap();
-        assert_eq!(device_client.lookup_device("test_device").unwrap().location, "old_location");
+        assert_eq!(device_client.lookup_device("test_device", "old_location").unwrap().location, "old_location");
 
         device_client.get_devices(&server.url()).await.unwrap();
-        assert_eq!(device_client.lookup_device("test_device").unwrap().location, "new_location");
+        assert_eq!(device_client.lookup_device("test_device", "new_location").unwrap().location, "new_location");
 
         mock_first.assert_async().await;
         mock_second.assert_async().await;
@@ -381,7 +381,7 @@ mod tests {
         let mut device_client = make_client();
         let _ = device_client.get_devices(&server.url()).await;
 
-        assert!(device_client.lookup_device("test_device").is_none());
+        assert!(device_client.lookup_device("test_device", "test_location").is_none());
 
         mock.assert_async().await;
     }

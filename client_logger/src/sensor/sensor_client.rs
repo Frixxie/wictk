@@ -50,7 +50,7 @@ impl SensorApi for SensorClient {
         sensor_name: &str,
         sensor_unit: &str,
     ) -> Result<i32> {
-        if let Some(cached) = self.cache.get(sensor_name) {
+        if let Some(cached) = self.lookup_sensor(sensor_name) {
             tracing::info!("Found cached sensor: {:?}", cached);
             return Ok(cached.id);
         }
