@@ -50,6 +50,13 @@ impl DeviceApi for DeviceClient {
         device_name: &str,
         device_location: &str,
     ) -> Result<DeviceId> {
+        if let Some(cached) = self.cache.get(device_name) {
+            if cached.location == device_location {
+                tracing::info!("Found cached device: {:?}", cached);
+                return Ok(cached.id);
+            }
+        }
+
         let devices = self.get_devices(url).await?;
         let device = devices
             .iter()

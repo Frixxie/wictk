@@ -50,6 +50,11 @@ impl SensorApi for SensorClient {
         sensor_name: &str,
         sensor_unit: &str,
     ) -> Result<i32> {
+        if let Some(cached) = self.cache.get(sensor_name) {
+            tracing::info!("Found cached sensor: {:?}", cached);
+            return Ok(cached.id);
+        }
+
         let sensors = self.get_sensors(url).await?;
         let sensor = sensors.iter().find(|s| s.name == sensor_name);
 
@@ -341,7 +346,7 @@ mod tests {
                 {"id": 13, "name": "lat", "unit": "°"}
             ]"#,
             )
-            .expect(13)
+            .expect(1)
             .create_async()
             .await;
 
