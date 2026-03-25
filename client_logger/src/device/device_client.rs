@@ -7,7 +7,7 @@ use super::{DeviceApi, DeviceId};
 
 pub struct DeviceClient {
     client: reqwest::Client,
-    cache: BTreeMap<String, Device>,
+    cache: BTreeMap<(String, String), Device>,
 }
 
 impl DeviceClient {
@@ -19,9 +19,8 @@ impl DeviceClient {
     }
 
     pub fn lookup_device(&self, name: &str, location: &str) -> Option<&Device> {
-        self.cache
-            .get(name)
-            .filter(|d| d.location == location)
+        let key = (name.to_string(), location.to_string());
+        self.cache.get(&key)
     }
 }
 
@@ -40,7 +39,8 @@ impl DeviceApi for DeviceClient {
             .context("Failed to parse devices response")?;
 
         for device in &devices {
-            self.cache.insert(device.name.clone(), device.clone());
+            let key = (device.name.clone(), device.location.clone());
+            self.cache.insert(key, device.clone());
         }
 
         Ok(devices)
@@ -362,9 +362,40 @@ mod tests {
 
         device_client.get_devices(&server.url()).await.unwrap();
         assert_eq!(device_client.lookup_device("test_device", "new_location").unwrap().location, "new_location");
+        assert!(device_client.lookup_device("test_device", "old_location").is_some());
 
         mock_first.assert_async().await;
         mock_second.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn should_cache_same_name_with_different_locations() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                {"id": 1, "name": "wictk_met", "location": "Oslo"},
+                {"id": 2, "name": "wictk_met", "location": "Bergen"}
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let mut device_client = make_client();
+        device_client.get_devices(&server.url()).await.unwrap();
+
+        let oslo = device_client.lookup_device("wictk_met", "Oslo");
+        assert!(oslo.is_some());
+        assert_eq!(oslo.unwrap().id, 1);
+
+        let bergen = device_client.lookup_device("wictk_met", "Bergen");
+        assert!(bergen.is_some());
+        assert_eq!(bergen.unwrap().id, 2);
+
+        mock.assert_async().await;
     }
 
     #[tokio::test]
