@@ -224,51 +224,57 @@ pub async fn nowcasts(
         ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
     })?;
 
-    let open_nowcast = match app_state
-        .nowcast_cache
-        .get(&format!("open_{location}"))
-        .await
-    {
-        Some(nowcast) => nowcast,
-        None => {
-            let open_nowcast = OpenWeatherNowcast::fetch(
-                &app_state.client,
-                &location,
-                &app_state.openweathermap_apikey,
-            )
+    let open_nowcast_fut = async {
+        match app_state
+            .nowcast_cache
+            .get(&format!("open_{location}"))
             .await
-            .map_err(|err| {
-                error!("Error fetching from OpenWeatherMap.com nowcast: {:?}", err);
-                ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
-            })?;
-            app_state
-                .nowcast_cache
-                .insert(format!("open_{location}"), open_nowcast.clone())
-                .await;
-            open_nowcast
+        {
+            Some(nowcast) => Ok(nowcast),
+            None => {
+                let open_nowcast = OpenWeatherNowcast::fetch(
+                    &app_state.client,
+                    &location,
+                    &app_state.openweathermap_apikey,
+                )
+                .await
+                .map_err(|err| {
+                    error!("Error fetching from OpenWeatherMap.com nowcast: {:?}", err);
+                    ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
+                })?;
+                app_state
+                    .nowcast_cache
+                    .insert(format!("open_{location}"), open_nowcast.clone())
+                    .await;
+                Ok(open_nowcast)
+            }
         }
     };
 
-    let met_nowcast = match app_state
-        .nowcast_cache
-        .get(&format!("met_{location}"))
-        .await
-    {
-        Some(nowcast) => nowcast,
-        None => {
-            let met_nowcast = MetNowcast::fetch(&app_state.client, &location)
-                .await
-                .map_err(|err| {
-                    error!("Error fetching Met.no nowcast: {:?}", err);
-                    ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
-                })?;
-            app_state
-                .nowcast_cache
-                .insert(format!("met_{location}"), met_nowcast.clone())
-                .await;
-            met_nowcast
+    let met_nowcast_fut = async {
+        match app_state
+            .nowcast_cache
+            .get(&format!("met_{location}"))
+            .await
+        {
+            Some(nowcast) => Ok(nowcast),
+            None => {
+                let met_nowcast = MetNowcast::fetch(&app_state.client, &location)
+                    .await
+                    .map_err(|err| {
+                        error!("Error fetching Met.no nowcast: {:?}", err);
+                        ApplicationError::new(&err.to_string(), StatusCode::INTERNAL_SERVER_ERROR)
+                    })?;
+                app_state
+                    .nowcast_cache
+                    .insert(format!("met_{location}"), met_nowcast.clone())
+                    .await;
+                Ok(met_nowcast)
+            }
         }
     };
+
+    let (open_nowcast, met_nowcast) = tokio::try_join!(open_nowcast_fut, met_nowcast_fut)?;
     Ok(Json(vec![met_nowcast, open_nowcast]))
 }
 
