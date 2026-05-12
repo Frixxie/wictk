@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: arc-runner-set-wictk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Print version info
+        run: rustc --version && cargo --version
+      - name: Build
+        run: cargo build --workspace --verbose
+
+  test:
+    runs-on: arc-runner-set-wictk
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Print version info
+        run: rustc --version && cargo --version
+      - name: Test
+        run: cargo test --workspace --verbose
+
+  deploy-backend:
+    runs-on: arc-runner-set-wictk
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push backend image
+        run: |
+          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
+          buildah build \
+            -f Dockerfile.backend \
+            --tag "${{ secrets.REGISTRY_IMAGE }}/backend:${{ github.ref_name }}"
+          buildah push "${{ secrets.REGISTRY_IMAGE }}/backend:${{ github.ref_name }}"
+
+  deploy-client-logger:
+    runs-on: arc-runner-set-wictk
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push client_logger image
+        run: |
+          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
+          buildah build \
+            -f Dockerfile.client_logger \
+            --tag "${{ secrets.REGISTRY_IMAGE }}/client_logger:${{ github.ref_name }}"
+          buildah push "${{ secrets.REGISTRY_IMAGE }}/client_logger:${{ github.ref_name }}"
+
+  deploy-notifier:
+    runs-on: arc-runner-set-wictk
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push notifier image
+        run: |
+          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
+          buildah build \
+            -f Dockerfile.notifier \
+            --tag "${{ secrets.REGISTRY_IMAGE }}/notifier:${{ github.ref_name }}"
+          buildah push "${{ secrets.REGISTRY_IMAGE }}/notifier:${{ github.ref_name }}"
