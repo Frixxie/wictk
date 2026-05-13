@@ -1,72 +1,139 @@
-name: CI
+name: CI/CD
 
 on:
   push:
+    branches:
+      - "**"
+    tags:
+      - "*"
   pull_request:
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: read
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: arc-runner-set-wictk
+    name: Build workspace
+    runs-on: arc-frixxie-runner
+    container:
+      image: rust:latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Print version info
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Rust versions
         run: rustc --version && cargo --version
-      - name: Build
+
+      - name: Build workspace
         run: cargo build --workspace --verbose
 
   test:
-    runs-on: arc-runner-set-wictk
-    needs: [build]
+    name: Test workspace
+    needs: build
+    runs-on: arc-frixxie-runner
+    container:
+      image: rust:latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Print version info
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Rust versions
         run: rustc --version && cargo --version
-      - name: Test
+
+      - name: Run tests
         run: cargo test --workspace --verbose
 
   deploy-backend:
-    runs-on: arc-runner-set-wictk
+    name: Deploy backend image
+    needs: test
     if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build and push backend image
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
         run: |
-          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
-          buildah build \
-            -f Dockerfile.backend \
-            --tag "${{ secrets.REGISTRY_IMAGE }}/backend:${{ github.ref_name }}"
-          buildah push "${{ secrets.REGISTRY_IMAGE }}/backend:${{ github.ref_name }}"
+          image="ghcr.io/${GITHUB_REPOSITORY}/backend"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
 
   deploy-client-logger:
-    runs-on: arc-runner-set-wictk
+    name: Deploy client logger image
+    needs: test
     if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build and push client_logger image
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
         run: |
-          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
-          buildah build \
-            -f Dockerfile.client_logger \
-            --tag "${{ secrets.REGISTRY_IMAGE }}/client_logger:${{ github.ref_name }}"
-          buildah push "${{ secrets.REGISTRY_IMAGE }}/client_logger:${{ github.ref_name }}"
+          image="ghcr.io/${GITHUB_REPOSITORY}/client_logger"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.client_logger
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
 
   deploy-notifier:
-    runs-on: arc-runner-set-wictk
+    name: Deploy notifier image
+    needs: test
     if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build and push notifier image
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image name
+        id: image
         run: |
-          buildah login -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}" "${{ secrets.REGISTRY }}"
-          buildah build \
-            -f Dockerfile.notifier \
-            --tag "${{ secrets.REGISTRY_IMAGE }}/notifier:${{ github.ref_name }}"
-          buildah push "${{ secrets.REGISTRY_IMAGE }}/notifier:${{ github.ref_name }}"
+          image="ghcr.io/${GITHUB_REPOSITORY}/notifier"
+          echo "name=${image,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.notifier
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
